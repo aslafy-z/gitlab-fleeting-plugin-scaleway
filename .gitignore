@@ -1,0 +1,16 @@
+# System files
+.DS_Store
+
+# IDE files
+.idea/
+.tool-versions
+
+# Misc
+.cache
+
+# build artifacts
+out/*
+cmd/fleeting-plugin-hetzner/fleeting-plugin-hetzner
+
+# Coverage
+/coverage.*
