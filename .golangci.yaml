@@ -6,8 +6,8 @@ linters-settings:
     sections:
       - standard
       - default
-      - prefix(github.com/hetznercloud)
-      - prefix(gitlab.com/hetznercloud)
+      - prefix(github.com/aslafy-z)
+      - prefix(gitlab.com/aslafy-z)
   forbidigo:
     forbid:
       - ^print.*$

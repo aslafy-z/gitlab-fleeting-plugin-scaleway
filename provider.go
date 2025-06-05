@@ -15,6 +15,7 @@ import (
 	"github.com/hetznercloud/hcloud-go/v2/hcloud/exp/kit/sshutil"
 
 	"github.com/aslafy-z/gitlab-fleeting-plugin-scaleway/internal/instancegroup"
+	scwBlock "github.com/scaleway/scaleway-sdk-go/api/block/v1"
 	scwIam "github.com/scaleway/scaleway-sdk-go/api/iam/v1alpha1"
 	scwInstance "github.com/scaleway/scaleway-sdk-go/api/instance/v1"
 	"github.com/scaleway/scaleway-sdk-go/scw"
@@ -31,11 +32,11 @@ type InstanceGroup struct {
 	Project      string `json:"project"`
 	Endpoint     string `json:"endpoint"`
 
-	Zone         string `json:"location"`
-	ServerType   string `json:"server_type"`
-	Image        string `json:"image"`
-	UserData     string `json:"user_data"`
-	UserDataFile string `json:"user_data_file"`
+	Zone         string        `json:"location"`
+	ServerTypes  LaxStringList `json:"server_type"`
+	Image        string        `json:"image"`
+	UserData     string        `json:"user_data"`
+	UserDataFile string        `json:"user_data_file"`
 
 	VolumeSize int `json:"volume_size"`
 
@@ -53,7 +54,9 @@ type InstanceGroup struct {
 	client         *scw.Client
 	instanceClient *scwInstance.API
 	iamClient      *scwIam.API
-	group          instancegroup.InstanceGroup
+	blockClient    *scwBlock.API
+
+	group instancegroup.InstanceGroup
 }
 
 func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings provider.Settings) (info provider.ProviderInfo, err error) {
@@ -73,6 +76,7 @@ func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings pro
 		scw.WithAuth(g.AccessKey, g.SecretKey),
 		scw.WithDefaultOrganizationID(g.Organization),
 		scw.WithDefaultProjectID(g.Project),
+		scw.WithDefaultZone(scw.Zone(g.Zone)),
 		scw.WithUserAgent(fmt.Sprintf("%s (%s)", Version.Name, Version.String())),
 		scw.WithHTTPClient(&http.Client{
 			Timeout: 15 * time.Second,
@@ -85,8 +89,6 @@ func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings pro
 	if err != nil {
 		return info, fmt.Errorf("failed to create Scaleway client: %w", err)
 	}
-	g.instanceClient = scwInstance.NewAPI(g.client)
-	g.iamClient = scwIam.NewAPI(g.client)
 
 	// Prepare credentials
 	if !g.settings.UseStaticCredentials {
@@ -117,15 +119,17 @@ func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings pro
 
 	// Create instance group
 	groupConfig := instancegroup.Config{
-		Zone:       g.Zone,
-		ServerType: g.ServerType,
-		Image:      g.Image,
-		UserData:   g.UserData,
-		Tags:       g.tags,
-		VolumeSize: g.VolumeSize,
+		Zone:               g.Zone,
+		ServerTypes:        g.ServerTypes,
+		Image:              g.Image,
+		UserData:           g.UserData,
+		Tags:               g.tags,
+		VolumeSize:         g.VolumeSize,
+		PublicIPv4Disabled: g.PublicIPv4Disabled,
+		PublicIPv6Disabled: g.PublicIPv6Disabled,
 	}
 
-	g.group = instancegroup.New(g.instanceClient, g.log, g.Name, groupConfig)
+	g.group = instancegroup.New(g.client, g.log, g.Name, groupConfig)
 
 	if err = g.group.Init(ctx); err != nil {
 		return

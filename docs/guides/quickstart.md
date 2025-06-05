@@ -8,7 +8,7 @@ concurrent = 20 # max_instances * capacity_per_instance
 check_interval = 0
 
 [[runners]]
-name = "hetzner-docker-autoscaler"
+name = "scaleway-docker-autoscaler"
 url = "https://gitlab.com" # TODO: Change me with the GitLab instance URL for the runner
 token = "$RUNNER_TOKEN" # TODO: Change me with the runner authentication token
 
@@ -35,7 +35,7 @@ instance_ready_command = "cloud-init status --wait || test $? -eq 2"
 name = "hetzner-docker-autoscaler"
 token = "$HCLOUD_TOKEN" # TODO: Change me with the Hetzner Cloud authentication token
 
-location = "hel1"
+location = "fr-par-1"
 server_type = "cpx41"
 image = "debian-12"
 private_networks = []

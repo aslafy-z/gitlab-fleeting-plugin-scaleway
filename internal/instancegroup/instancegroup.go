@@ -9,6 +9,7 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hetznercloud/hcloud-go/v2/hcloud/exp/kit/randutil"
+	scwBlock "github.com/scaleway/scaleway-sdk-go/api/block/v1"
 	scwInstance "github.com/scaleway/scaleway-sdk-go/api/instance/v1"
 	"github.com/scaleway/scaleway-sdk-go/scw"
 )
@@ -27,12 +28,13 @@ type InstanceGroup interface {
 
 var _ InstanceGroup = (*instanceGroup)(nil)
 
-func New(instanceClient *scwInstance.API, log hclog.Logger, name string, config Config) InstanceGroup {
+func New(client *scw.Client, log hclog.Logger, name string, config Config) InstanceGroup {
 	return &instanceGroup{
 		name:           name,
 		config:         config,
 		log:            log,
-		instanceClient: instanceClient,
+		instanceClient: scwInstance.NewAPI(client),
+		blockClient:    scwBlock.NewAPI(client),
 	}
 }
 
@@ -44,11 +46,12 @@ type instanceGroup struct {
 	// merged.
 	log            hclog.Logger
 	instanceClient *scwInstance.API
+	blockClient    *scwBlock.API
 
-	zone       *scw.Zone
-	serverType *string
-	image      *string
-	tags       []string
+	zone        *scw.Zone
+	serverTypes []string
+	image       *string
+	tags        []string
 
 	randomNameFn func() string
 }
@@ -68,13 +71,16 @@ func (g *instanceGroup) Init(ctx context.Context) (err error) {
 	g.zone = &zone
 
 	// Server Type
-	if _, err := g.instanceClient.GetServerType(&scwInstance.GetServerTypeRequest{
-		Zone: *g.zone,
-		Name: g.config.ServerType,
-	}); err != nil {
-		return fmt.Errorf("server type not found: %s: %w", g.config.ServerType, err)
+	for _, serverTypeID := range g.config.ServerTypes {
+		_, err := g.instanceClient.GetServerType(&scwInstance.GetServerTypeRequest{
+			Zone: *g.zone,
+			Name: serverTypeID,
+		})
+		if err != nil {
+			return fmt.Errorf("server type not found: %s: %w", serverTypeID, err)
+		}
+		g.serverTypes = append(g.serverTypes, serverTypeID)
 	}
-	g.serverType = &g.config.ServerType
 
 	// Image
 	if _, err := g.instanceClient.GetImage(&scwInstance.GetImageRequest{

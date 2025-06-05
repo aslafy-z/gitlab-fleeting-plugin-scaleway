@@ -18,7 +18,6 @@ import (
 	"github.com/aslafy-z/gitlab-fleeting-plugin-scaleway/internal/instancegroup"
 	"github.com/aslafy-z/gitlab-fleeting-plugin-scaleway/internal/testutils"
 	scwIam "github.com/scaleway/scaleway-sdk-go/api/iam/v1alpha1"
-	scwInstance "github.com/scaleway/scaleway-sdk-go/api/instance/v1"
 )
 
 func TestUploadSSHPublicKey(t *testing.T) {
@@ -141,13 +140,11 @@ func TestUploadSSHPublicKey(t *testing.T) {
 			client := testutils.MakeTestClient(server.URL)
 
 			group := &InstanceGroup{
-				Name:           "fleeting",
-				log:            hclog.New(hclog.DefaultOptions),
-				settings:       provider.Settings{},
-				group:          mock,
-				client:         client,
-				iamClient:      scwIam.NewAPI(client),
-				instanceClient: scwInstance.NewAPI(client),
+				Name:     "fleeting",
+				log:      hclog.New(hclog.DefaultOptions),
+				settings: provider.Settings{},
+				group:    mock,
+				client:   client,
 			}
 
 			testCase.run(t, ctx, group, server)

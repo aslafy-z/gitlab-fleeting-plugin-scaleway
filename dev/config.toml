@@ -31,7 +31,7 @@ name = "dev-docker-autoscaler"
 token = "$HCLOUD_TOKEN"
 endpoint = "http://proxy:8080/v1"
 
-location = "hel1"
+location = "fr-par-1"
 server_type = "cpx21"
 image = "ubuntu-24.04"
 volume_size = 15

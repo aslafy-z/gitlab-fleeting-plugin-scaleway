@@ -97,7 +97,7 @@ func (g *InstanceGroup) validate() error {
 		errs = append(errs, fmt.Errorf("missing required plugin config: zone"))
 	}
 
-	if g.ServerType == "" {
+	if len(g.ServerTypes) == 0 {
 		errs = append(errs, fmt.Errorf("missing required plugin config: server_type"))
 	}
 
@@ -129,8 +129,8 @@ func (g *InstanceGroup) populate() error {
 		g.UserData = string(userData)
 	}
 
-	g.labels = map[string]string{
-		"managed-by": Version.Name,
+	g.tags = []string{
+		fmt.Sprintf("managed-by=%s", Version.Name),
 	}
 
 	return nil

@@ -23,16 +23,16 @@ import (
 
 var (
 	DefaultTestConfig = Config{
-		Zone:       "hell",
-		ServerType: "PRO2-XS",
-		Image:      "1fa98915-fc85-40d9-95ea-65a06ca8b396",
-		VolumeSize: 10,
+		Zone:        "fr-par-1",
+		ServerTypes: []string{"PRO2-XS", "PRO2-S"},
+		Image:       "1fa98915-fc85-40d9-95ea-65a06ca8b396",
+		VolumeSize:  10,
 	}
 )
 
 func TestNew(t *testing.T) {
 	client, _ := scw.NewClient()
-	New(scwInstance.NewAPI(client), hclog.Default(), "fleeting", DefaultTestConfig)
+	New(client, hclog.Default(), "fleeting", DefaultTestConfig)
 }
 
 func TestInit(t *testing.T) {
@@ -44,11 +44,11 @@ func TestInit(t *testing.T) {
 		{
 			name: "success",
 			config: Config{
-				Zone:       "hell",
-				ServerType: "PRO2-XS",
-				Image:      "1fa98915-fc85-40d9-95ea-65a06ca8b396",
-				VolumeSize: 10,
-				Tags:       []string{"key=value"},
+				Zone:        "fr-par-1",
+				ServerTypes: []string{"PRO2-XS"},
+				Image:       "1fa98915-fc85-40d9-95ea-65a06ca8b396",
+				VolumeSize:  10,
+				Tags:        []string{"key=value"},
 			},
 			run: func(t *testing.T, group *instanceGroup, server *mockutil.Server) {
 				server.Expect([]mockutil.Request{
@@ -59,8 +59,8 @@ func TestInit(t *testing.T) {
 				err := group.Init(context.Background())
 				require.NoError(t, err)
 
-				require.Equal(t, "hell", group.zone.String())
-				require.Equal(t, "PRO2-XS", group.serverType)
+				require.Equal(t, "fr-par-1", group.zone.String())
+				require.Equal(t, "PRO2-XS", group.serverTypes[0])
 				require.Equal(t, "1fa98915-fc85-40d9-95ea-65a06ca8b396", group.image)
 				require.Equal(t, []string{"key=value", "instance-group=fleeting"}, group.tags)
 			},
@@ -70,7 +70,7 @@ func TestInit(t *testing.T) {
 			config: DefaultTestConfig,
 			run: func(t *testing.T, group *instanceGroup, server *mockutil.Server) {
 				err := group.Init(context.Background())
-				require.EqualError(t, err, "zone not found: hell")
+				require.EqualError(t, err, "zone not found: fr-par-1")
 			},
 		},
 		{
@@ -79,7 +79,7 @@ func TestInit(t *testing.T) {
 			run: func(t *testing.T, group *instanceGroup, server *mockutil.Server) {
 				server.Expect([]mockutil.Request{
 					{
-						Method: "GET", Path: "/instance/v1/zones/hell/products/servers",
+						Method: "GET", Path: "/instance/v1/zones/fr-par-1/products/servers",
 						Status: 200,
 						JSON: scwInstance.ListServersTypesResponse{
 							Servers:    map[string]*scwInstance.ServerType{},
@@ -99,7 +99,7 @@ func TestInit(t *testing.T) {
 				server.Expect([]mockutil.Request{
 					testutils.GetServerTypePRO2XSRequest,
 					{
-						Method: "GET", Path: "/instance/v1/zones/hell/images/1fa98915-fc85-40d9-95ea-65a06ca8b396",
+						Method: "GET", Path: "/instance/v1/zones/fr-par-1/images/1fa98915-fc85-40d9-95ea-65a06ca8b396",
 						Status: 404,
 					},
 				})

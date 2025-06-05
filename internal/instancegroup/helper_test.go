@@ -30,6 +30,7 @@ func setupInstanceGroup(t *testing.T, config Config, requests []mockutil.Request
 	requests = append(
 		[]mockutil.Request{
 			testutils.GetServerTypePRO2XSRequest,
+			testutils.GetServerTypePRO2SRequest,
 			testutils.GetImageUbuntu2404Request,
 		},
 		requests...,
