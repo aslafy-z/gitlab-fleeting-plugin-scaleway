@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/hashicorp/go-hclog"
+	scwBlock "github.com/scaleway/scaleway-sdk-go/api/block/v1"
 	scwInstance "github.com/scaleway/scaleway-sdk-go/api/instance/v1"
 	"github.com/stretchr/testify/require"
 
@@ -41,7 +42,7 @@ func setupInstanceGroup(t *testing.T, config Config, requests []mockutil.Request
 
 	log := hclog.New(hclog.DefaultOptions)
 
-	group := &instanceGroup{name: "fleeting", config: config, log: log, instanceClient: scwInstance.NewAPI(client)}
+	group := &instanceGroup{name: "fleeting", config: config, log: log, instanceClient: scwInstance.NewAPI(client), blockClient: scwBlock.NewAPI(client)}
 	group.randomNameFn = makeRandomNameFn(group.name)
 
 	err := group.Init(context.Background())

@@ -72,10 +72,12 @@ func (g *instanceGroup) Init(ctx context.Context) (err error) {
 
 	// Server Type
 	for _, serverTypeID := range g.config.ServerTypes {
-		_, err := g.instanceClient.GetServerType(&scwInstance.GetServerTypeRequest{
-			Zone: *g.zone,
-			Name: serverTypeID,
-		})
+		_, err := g.instanceClient.GetServerType(
+			&scwInstance.GetServerTypeRequest{
+				Zone: *g.zone,
+				Name: serverTypeID,
+			},
+		)
 		if err != nil {
 			return fmt.Errorf("server type not found: %s: %w", serverTypeID, err)
 		}
@@ -83,10 +85,13 @@ func (g *instanceGroup) Init(ctx context.Context) (err error) {
 	}
 
 	// Image
-	if _, err := g.instanceClient.GetImage(&scwInstance.GetImageRequest{
-		Zone:    *g.zone,
-		ImageID: g.config.Image,
-	}); err != nil {
+	if _, err := g.instanceClient.GetImage(
+		&scwInstance.GetImageRequest{
+			Zone:    *g.zone,
+			ImageID: g.config.Image,
+		},
+		scw.WithContext(ctx),
+	); err != nil {
 		return fmt.Errorf("image not found: %s: %w", g.config.Image, err)
 	}
 	g.image = &g.config.Image
@@ -268,10 +273,14 @@ func (g *instanceGroup) Decrease(ctx context.Context, iids []string) ([]string, 
 }
 
 func (g *instanceGroup) List(ctx context.Context) ([]*Instance, error) {
-	servers, err := g.instanceClient.ListServers(&scwInstance.ListServersRequest{
-		Zone: *g.zone,
-		Tags: g.tags,
-	})
+	servers, err := g.instanceClient.ListServers(
+		&scwInstance.ListServersRequest{
+			Zone: *g.zone,
+			Tags: g.tags,
+		},
+		scw.WithAllPages(),
+		scw.WithContext(ctx),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("could not list instances: %w", err)
 	}
@@ -290,10 +299,13 @@ func (g *instanceGroup) Get(ctx context.Context, iid string) (*Instance, error) 
 		return nil, err
 	}
 
-	server, err := g.instanceClient.GetServer(&scwInstance.GetServerRequest{
-		Zone:     *g.zone,
-		ServerID: instance.IID(),
-	})
+	server, err := g.instanceClient.GetServer(
+		&scwInstance.GetServerRequest{
+			Zone:     *g.zone,
+			ServerID: instance.IID(),
+		},
+		scw.WithContext(ctx),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("could not get instance: %w", err)
 	}

@@ -33,7 +33,7 @@ func sshKeyFixture(t *testing.T) ([]byte, scwIam.SSHKey) {
 		t.Fatal(err)
 	}
 
-	return privateKey, scwIam.SSHKey{ID: "1", Name: "fleeting", ProjectID: "dummy", Fingerprint: fingerprint, PublicKey: string(publicKey)}
+	return privateKey, scwIam.SSHKey{ID: "1", Name: "fleeting", ProjectID: "e0660b65-9dce-4f25-854d-1161a1aa96a9", Fingerprint: fingerprint, PublicKey: string(publicKey)}
 }
 
 func TestInit(t *testing.T) {
@@ -48,7 +48,7 @@ func TestInit(t *testing.T) {
 			requests: []mockutil.Request{
 				{
 					Method: "GET",
-					Path:   "/iam/v1alpha1/ssh-keys",
+					Path:   "/iam/v1alpha1/ssh-keys?disabled=false&order_by=created_at_asc&page=1",
 					Status: 200,
 					JSON:   scwIam.ListSSHKeysResponse{SSHKeys: []*scwIam.SSHKey{}, TotalCount: 0},
 				},
@@ -60,12 +60,6 @@ func TestInit(t *testing.T) {
 				testutils.GetServerTypePRO2XSRequest,
 				testutils.GetServerTypePRO2SRequest,
 				testutils.GetImageUbuntu2404Request,
-				{
-					Method: "GET",
-					Path:   "/iam/v1alpha1/ssh-keys",
-					Status: 200,
-					JSON:   scwIam.ListSSHKeysResponse{SSHKeys: []*scwIam.SSHKey{&sshKey}, TotalCount: 1},
-				},
 			},
 			run: func(t *testing.T, group *InstanceGroup, ctx context.Context, log hclog.Logger, settings provider.Settings) {
 				info, err := group.Init(ctx, log, settings)
@@ -77,7 +71,7 @@ func TestInit(t *testing.T) {
 			requests: []mockutil.Request{
 				{
 					Method: "GET",
-					Path:   "/iam/v1alpha1/ssh-keys",
+					Path:   "/iam/v1alpha1/ssh-keys?disabled=false&order_by=created_at_asc&page=1",
 					Status: 200,
 					JSON:   scwIam.ListSSHKeysResponse{SSHKeys: []*scwIam.SSHKey{}, TotalCount: 0},
 				},
@@ -89,12 +83,6 @@ func TestInit(t *testing.T) {
 				testutils.GetServerTypePRO2XSRequest,
 				testutils.GetServerTypePRO2SRequest,
 				testutils.GetImageUbuntu2404Request,
-				{
-					Method: "GET",
-					Path:   "/iam/v1alpha1/ssh-keys",
-					Status: 200,
-					JSON:   scwIam.ListSSHKeysResponse{SSHKeys: []*scwIam.SSHKey{&sshKey}, TotalCount: 1},
-				},
 			},
 			run: func(t *testing.T, group *InstanceGroup, ctx context.Context, log hclog.Logger, settings provider.Settings) {
 				settings.UseStaticCredentials = true
@@ -109,19 +97,13 @@ func TestInit(t *testing.T) {
 			requests: []mockutil.Request{
 				{
 					Method: "GET",
-					Path:   "/iam/v1alpha1/ssh-keys",
+					Path:   "/iam/v1alpha1/ssh-keys?disabled=false&order_by=created_at_asc&page=1",
 					Status: 200,
 					JSON:   scwIam.ListSSHKeysResponse{SSHKeys: []*scwIam.SSHKey{&sshKey}, TotalCount: 1},
 				},
 				testutils.GetServerTypePRO2XSRequest,
 				testutils.GetServerTypePRO2SRequest,
 				testutils.GetImageUbuntu2404Request,
-				{
-					Method: "GET",
-					Path:   "/iam/v1alpha1/ssh-keys",
-					Status: 200,
-					JSON:   scwIam.ListSSHKeysResponse{SSHKeys: []*scwIam.SSHKey{&sshKey}, TotalCount: 1},
-				},
 			},
 			run: func(t *testing.T, group *InstanceGroup, ctx context.Context, log hclog.Logger, settings provider.Settings) {
 				settings.UseStaticCredentials = true
@@ -138,11 +120,12 @@ func TestInit(t *testing.T) {
 			server := httptest.NewServer(mockutil.Handler(t, testCase.requests))
 
 			group := &InstanceGroup{
-				Name:         "fleeting",
-				AccessKey:    "dummy",
-				SecretKey:    "dummy",
-				Organization: "dummy",
-				Project:      "dummy",
+				Name: "fleeting",
+
+				AccessKey:    "SCWAXXXXXXXXXXXXXXXX",
+				SecretKey:    "b78cf38b-cbf3-47c8-b729-fb1069a9d4a2",
+				Organization: "3ff93173-96c1-4f5f-8cf6-7441efc1070f",
+				Project:      "e0660b65-9dce-4f25-854d-1161a1aa96a9",
 
 				Endpoint:    server.URL,
 				Zone:        "fr-par-1",
@@ -344,6 +327,7 @@ func TestConnectInfo(t *testing.T) {
 						ID:    "1",
 						Name:  "fleeting-a",
 						State: scwInstance.ServerStateRunning,
+						Arch:  scwInstance.ArchX86_64,
 						Image: &scwInstance.Image{
 							ID:   "1fa98915-fc85-40d9-95ea-65a06ca8b396",
 							Name: "Ubuntu 24.04",
@@ -384,6 +368,7 @@ func TestConnectInfo(t *testing.T) {
 						ID:    "1",
 						Name:  "fleeting-a",
 						State: scwInstance.ServerStateRunning,
+						Arch:  scwInstance.ArchX86_64,
 						Image: &scwInstance.Image{
 							ID:   "1fa98915-fc85-40d9-95ea-65a06ca8b396",
 							Name: "Ubuntu 24.04",
@@ -455,7 +440,7 @@ func TestShutdown(t *testing.T) {
 	}{
 		{name: "success",
 			run: func(t *testing.T, group *InstanceGroup, server *mockutil.Server) {
-				group.sshKey = &scwIam.SSHKey{ID: "1", Name: "fleeting", ProjectID: "dummy"}
+				group.sshKey = &scwIam.SSHKey{ID: "1", Name: "fleeting", ProjectID: "e0660b65-9dce-4f25-854d-1161a1aa96a9"}
 
 				server.Expect([]mockutil.Request{
 					{
@@ -470,7 +455,7 @@ func TestShutdown(t *testing.T) {
 		},
 		{name: "failure",
 			run: func(t *testing.T, group *InstanceGroup, server *mockutil.Server) {
-				group.sshKey = &scwIam.SSHKey{ID: "1", Name: "fleeting", ProjectID: "dummy"}
+				group.sshKey = &scwIam.SSHKey{ID: "1", Name: "fleeting", ProjectID: "e0660b65-9dce-4f25-854d-1161a1aa96a9"}
 
 				server.Expect([]mockutil.Request{
 					{
@@ -480,7 +465,7 @@ func TestShutdown(t *testing.T) {
 				})
 
 				err := group.Shutdown(context.Background())
-				require.EqualError(t, err, "hcloud: server responded with status code 500")
+				require.EqualError(t, err, "scaleway-sdk-go: http error 500 Internal Server Error: 500 Internal Server Error")
 			},
 		},
 		{name: "passthrough",
@@ -500,10 +485,11 @@ func TestShutdown(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			mock := instancegroup.NewMockInstanceGroup(ctrl)
 			group := &InstanceGroup{
-				log:      hclog.New(hclog.DefaultOptions),
-				settings: provider.Settings{},
-				group:    mock,
-				client:   client,
+				log:       hclog.New(hclog.DefaultOptions),
+				settings:  provider.Settings{},
+				group:     mock,
+				client:    client,
+				iamClient: scwIam.NewAPI(client),
 			}
 
 			testCase.run(t, group, server)

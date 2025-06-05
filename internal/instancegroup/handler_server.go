@@ -34,20 +34,28 @@ func (h *ServerHandler) Create(ctx context.Context, group *instanceGroup, instan
 
 	var publicIPs []string
 	if !group.config.PublicIPv4Disabled {
-		ipRes, err := group.instanceClient.CreateIP(&scwInstance.CreateIPRequest{
-			Tags: group.tags,
-			Type: scwInstance.IPTypeRoutedIPv4,
-		}, scw.WithContext(ctx))
+		ipRes, err := group.instanceClient.CreateIP(
+			&scwInstance.CreateIPRequest{
+				Tags: group.tags,
+				Type: scwInstance.IPTypeRoutedIPv4,
+				Zone: *group.zone,
+			},
+			scw.WithContext(ctx),
+		)
 		if err != nil {
 			return fmt.Errorf("could not create IPv4: %w", err)
 		}
 		publicIPs = append(publicIPs, ipRes.IP.ID)
 	}
 	if !group.config.PublicIPv6Disabled {
-		ipRes, err := group.instanceClient.CreateIP(&scwInstance.CreateIPRequest{
-			Tags: group.tags,
-			Type: scwInstance.IPTypeRoutedIPv6,
-		}, scw.WithContext(ctx))
+		ipRes, err := group.instanceClient.CreateIP(
+			&scwInstance.CreateIPRequest{
+				Tags: group.tags,
+				Type: scwInstance.IPTypeRoutedIPv6,
+				Zone: *group.zone,
+			},
+			scw.WithContext(ctx),
+		)
 		if err != nil {
 			return fmt.Errorf("could not create IPv6: %w", err)
 		}
@@ -56,7 +64,11 @@ func (h *ServerHandler) Create(ctx context.Context, group *instanceGroup, instan
 	instance.opts.PublicIPs = &publicIPs
 
 	for _, serverType := range group.serverTypes {
-		srvAvailabilityRes, err := group.instanceClient.GetServerTypesAvailability(&scwInstance.GetServerTypesAvailabilityRequest{}, scw.WithContext(ctx))
+		srvAvailabilityRes, err := group.instanceClient.GetServerTypesAvailability(
+			&scwInstance.GetServerTypesAvailabilityRequest{},
+			scw.WithAllPages(),
+			scw.WithContext(ctx),
+		)
 		if err != nil {
 			return fmt.Errorf("could not check server type availability: %w", err)
 		}
@@ -67,34 +79,46 @@ func (h *ServerHandler) Create(ctx context.Context, group *instanceGroup, instan
 		}
 
 		instance.opts.CommercialType = serverType
-		result, err = group.instanceClient.CreateServer(instance.opts)
+		result, err = group.instanceClient.CreateServer(
+			instance.opts,
+			scw.WithContext(ctx),
+		)
 		if err != nil {
 			return fmt.Errorf("could not request instance creation: %w", err)
 		}
 		break
 	}
 
-	err = group.instanceClient.SetServerUserData(&scwInstance.SetServerUserDataRequest{
-		ServerID: result.Server.ID,
-		Key:      "cloud-init",
-		Content:  strings.NewReader(group.config.UserData),
-	}, scw.WithContext(ctx))
+	err = group.instanceClient.SetServerUserData(
+		&scwInstance.SetServerUserDataRequest{
+			ServerID: result.Server.ID,
+			Key:      "cloud-init",
+			Content:  strings.NewReader(group.config.UserData),
+		},
+		scw.WithContext(ctx),
+	)
 	if err != nil {
 		return fmt.Errorf("could not set server user data: %w", err)
 	}
 
-	_, err = group.blockClient.UpdateVolume(&scwBlock.UpdateVolumeRequest{
-		VolumeID: result.Server.Volumes["0"].ID,
-		PerfIops: scw.Uint32Ptr(5000), // TODO: Make this configurable
-	}, scw.WithContext(ctx))
+	_, err = group.blockClient.UpdateVolume(
+		&scwBlock.UpdateVolumeRequest{
+			VolumeID: result.Server.Volumes["0"].ID,
+			PerfIops: scw.Uint32Ptr(5000), // TODO: Make this configurable
+		},
+		scw.WithContext(ctx),
+	)
 	if err != nil {
 		return fmt.Errorf("could not update volume IOPS: %w", err)
 	}
 
-	_, err = group.instanceClient.ServerAction(&scwInstance.ServerActionRequest{
-		ServerID: result.Server.ID,
-		Action:   scwInstance.ServerActionPoweron,
-	}, scw.WithContext(ctx))
+	_, err = group.instanceClient.ServerAction(
+		&scwInstance.ServerActionRequest{
+			ServerID: result.Server.ID,
+			Action:   scwInstance.ServerActionPoweron,
+		},
+		scw.WithContext(ctx),
+	)
 	if err != nil {
 		return fmt.Errorf("could not power on server: %w", err)
 	}
@@ -103,9 +127,12 @@ func (h *ServerHandler) Create(ctx context.Context, group *instanceGroup, instan
 	*instance = *InstanceFromServer(result.Server)
 
 	instance.waitFn = func() error {
-		_, err = group.instanceClient.WaitForServer(&scwInstance.WaitForServerRequest{
-			ServerID: result.Server.ID,
-		}, scw.WithContext(ctx))
+		_, err = group.instanceClient.WaitForServer(
+			&scwInstance.WaitForServerRequest{
+				ServerID: result.Server.ID,
+			},
+			scw.WithContext(ctx),
+		)
 
 		return err
 	}
@@ -114,52 +141,69 @@ func (h *ServerHandler) Create(ctx context.Context, group *instanceGroup, instan
 }
 
 func (h *ServerHandler) Cleanup(ctx context.Context, group *instanceGroup, instance *Instance) error {
-	// TODO: Understand why this is needed, and if it can be removed.
-	// if instance.ID == 0 {
-	// 	return nil
-	// }
+	if instance.ID == "" {
+		return nil
+	}
 
-	err := group.instanceClient.DeleteIP(&scwInstance.DeleteIPRequest{
-		IP: instance.Server.PublicIPs[0].ID,
-	}, scw.WithContext(ctx))
+	err := group.instanceClient.DeleteIP(
+		&scwInstance.DeleteIPRequest{
+			IP: instance.Server.PublicIPs[0].ID,
+		},
+		scw.WithContext(ctx),
+	)
 	if err != nil {
 		return fmt.Errorf("could not delete IP: %w", err)
 	}
 
-	err = group.instanceClient.ServerActionAndWait(&scwInstance.ServerActionAndWaitRequest{
-		ServerID: instance.ID,
-		Action:   scwInstance.ServerActionPoweroff,
-	}, scw.WithContext(ctx))
+	err = group.instanceClient.ServerActionAndWait(
+		&scwInstance.ServerActionAndWaitRequest{
+			ServerID: instance.ID,
+			Action:   scwInstance.ServerActionPoweroff,
+		},
+		scw.WithContext(ctx),
+	)
 	if err != nil {
 		return fmt.Errorf("could not power off server: %w", err)
 	}
 
-	_, err = group.instanceClient.DetachServerVolume(&scwInstance.DetachServerVolumeRequest{
-		ServerID: instance.ID,
-		VolumeID: instance.Server.Volumes["0"].ID,
-	}, scw.WithContext(ctx))
+	_, err = group.instanceClient.DetachServerVolume(
+		&scwInstance.DetachServerVolumeRequest{
+			ServerID: instance.ID,
+			VolumeID: instance.Server.Volumes["0"].ID,
+		},
+		scw.WithContext(ctx),
+	)
 	if err != nil {
 		return fmt.Errorf("could not detach volume: %w", err)
 	}
 
-	err = group.instanceClient.DeleteVolume(&scwInstance.DeleteVolumeRequest{
-		VolumeID: instance.Server.Volumes["0"].ID,
-	}, scw.WithContext(ctx))
+	err = group.instanceClient.DeleteVolume(
+		&scwInstance.DeleteVolumeRequest{
+			VolumeID: instance.Server.Volumes["0"].ID,
+		},
+		scw.WithContext(ctx),
+	)
 	if err != nil {
 		return fmt.Errorf("could not delete volume: %w", err)
 	}
 
-	err = group.instanceClient.DeleteServer(&scwInstance.DeleteServerRequest{
-		ServerID: instance.ID,
-	}, scw.WithContext(ctx))
+	err = group.instanceClient.DeleteServer(
+		&scwInstance.DeleteServerRequest{
+			ServerID: instance.ID,
+		},
+		scw.WithContext(ctx),
+	)
 	if err != nil {
 		return fmt.Errorf("could not request instance deletion: %w", err)
 	}
 
 	instance.waitFn = func() error {
-		_, err = group.instanceClient.WaitForServer(&scwInstance.WaitForServerRequest{
-			ServerID: instance.ID,
-		}, scw.WithContext(ctx))
+		_, err = group.instanceClient.WaitForServer(
+			&scwInstance.WaitForServerRequest{
+				ServerID: instance.ID,
+			},
+			scw.WithContext(ctx),
+		)
 
 		return err
 	}

@@ -17,6 +17,7 @@ import (
 	// "github.com/hetznercloud/hcloud-go/v2/hcloud/schema"
 
 	"github.com/aslafy-z/gitlab-fleeting-plugin-scaleway/internal/testutils"
+	scwBlock "github.com/scaleway/scaleway-sdk-go/api/block/v1"
 	scwInstance "github.com/scaleway/scaleway-sdk-go/api/instance/v1"
 	"github.com/scaleway/scaleway-sdk-go/scw"
 )
@@ -79,7 +80,8 @@ func TestInit(t *testing.T) {
 			run: func(t *testing.T, group *instanceGroup, server *mockutil.Server) {
 				server.Expect([]mockutil.Request{
 					{
-						Method: "GET", Path: "/instance/v1/zones/fr-par-1/products/servers",
+						Method: "GET",
+						Path:   "/instance/v1/zones/fr-par-1/products/servers?page=1",
 						Status: 200,
 						JSON: scwInstance.ListServersTypesResponse{
 							Servers:    map[string]*scwInstance.ServerType{},
@@ -116,7 +118,7 @@ func TestInit(t *testing.T) {
 
 			log := hclog.New(hclog.DefaultOptions)
 
-			group := &instanceGroup{name: "fleeting", config: testCase.config, log: log, instanceClient: scwInstance.NewAPI(client)}
+			group := &instanceGroup{name: "fleeting", config: testCase.config, log: log, instanceClient: scwInstance.NewAPI(client), blockClient: scwBlock.NewAPI(client)}
 
 			testCase.run(t, group, server)
 		})

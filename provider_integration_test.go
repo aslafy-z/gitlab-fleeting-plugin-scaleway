@@ -127,9 +127,13 @@ func TestProvisioning(t *testing.T) {
 func ensureNoServers(t *testing.T, ctx context.Context, instanceClient *scwInstance.API, name string) { // nolint: revive
 	t.Helper()
 
-	result, err := instanceClient.ListServers(&scwInstance.ListServersRequest{
-		Tags: []string{"instance-group=" + name},
-	})
+	result, err := instanceClient.ListServers(
+		&scwInstance.ListServersRequest{
+			Tags: []string{"instance-group=" + name},
+		},
+		scw.WithAllPages(),
+		scw.WithContext(ctx),
+	)
 	require.NoError(t, err)
 	require.Equal(t, result.TotalCount, 0)
 }

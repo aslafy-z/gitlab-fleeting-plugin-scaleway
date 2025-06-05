@@ -90,6 +90,10 @@ func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings pro
 		return info, fmt.Errorf("failed to create Scaleway client: %w", err)
 	}
 
+	g.instanceClient = scwInstance.NewAPI(g.client)
+	g.iamClient = scwIam.NewAPI(g.client)
+	g.blockClient = scwBlock.NewAPI(g.client)
+
 	// Prepare credentials
 	if !g.settings.UseStaticCredentials {
 		g.log.Info("generating ssh key")
@@ -262,9 +266,12 @@ func (g *InstanceGroup) Shutdown(ctx context.Context) error {
 
 	if g.sshKey != nil {
 		g.log.Debug("deleting ssh key", "id", fmt.Sprint(g.sshKey.ID))
-		err := g.iamClient.DeleteSSHKey(&scwIam.DeleteSSHKeyRequest{
-			SSHKeyID: g.sshKey.ID,
-		})
+		err := g.iamClient.DeleteSSHKey(
+			&scwIam.DeleteSSHKeyRequest{
+				SSHKeyID: g.sshKey.ID,
+			},
+			scw.WithContext(ctx),
+		)
 		if err != nil {
 			errs = append(errs, err)
 		}

@@ -52,7 +52,7 @@ func InstanceFromIID(value string) (*Instance, error) {
 
 // IID holds to data to identify the instance outside of the instance group.
 func (i *Instance) IID() string {
-	return fmt.Sprintf("%s:%d", i.Name, i.ID)
+	return fmt.Sprintf("%s:%s", i.Name, i.ID)
 }
 
 func (i *Instance) wait() error {

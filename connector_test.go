@@ -33,7 +33,7 @@ func TestUploadSSHPublicKey(t *testing.T) {
 				server.Expect([]mockutil.Request{
 					{
 						Method: "GET",
-						Path:   "/iam/v1alpha1/ssh-keys",
+						Path:   "/iam/v1alpha1/ssh-keys?disabled=false&order_by=created_at_asc&page=1",
 						Status: 200,
 						JSON:   scwIam.ListSSHKeysResponse{SSHKeys: []*scwIam.SSHKey{&sshKey}, TotalCount: 1},
 					},
@@ -54,9 +54,9 @@ func TestUploadSSHPublicKey(t *testing.T) {
 				server.Expect([]mockutil.Request{
 					{
 						Method: "GET",
-						Path:   "/iam/v1alpha1/ssh-keys",
+						Path:   "/iam/v1alpha1/ssh-keys?disabled=false&order_by=created_at_asc&page=1",
 						Status: 200,
-						JSON:   scwIam.ListSSHKeysResponse{SSHKeys: []*scwIam.SSHKey{&sshKey}, TotalCount: 1},
+						JSON:   scwIam.ListSSHKeysResponse{SSHKeys: []*scwIam.SSHKey{}, TotalCount: 0},
 					},
 					{
 						Method: "POST", Path: "/iam/v1alpha1/ssh-keys",
@@ -69,7 +69,7 @@ func TestUploadSSHPublicKey(t *testing.T) {
 
 							require.JSONEq(t, fmt.Sprintf(`{
 								"name": "fleeting",
-								"project_id": "dummy",
+								"project_id": "e0660b65-9dce-4f25-854d-1161a1aa96a9",
 								"public_key": %s
 							}`, publicKey), string(body))
 						},
@@ -93,9 +93,14 @@ func TestUploadSSHPublicKey(t *testing.T) {
 				server.Expect([]mockutil.Request{
 					{
 						Method: "GET",
-						Path:   "/iam/v1alpha1/ssh-keys",
+						Path:   "/iam/v1alpha1/ssh-keys?disabled=false&order_by=created_at_asc&page=1",
 						Status: 200,
-						JSON:   scwIam.ListSSHKeysResponse{SSHKeys: []*scwIam.SSHKey{&sshKey}, TotalCount: 1},
+						JSON: scwIam.ListSSHKeysResponse{SSHKeys: []*scwIam.SSHKey{{
+							ID:          sshKey.ID,
+							Name:        sshKey.Name,
+							Fingerprint: "00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00",
+						},
+						}, TotalCount: 1},
 					},
 					{
 						Method: "DELETE", Path: "/iam/v1alpha1/ssh-keys/1",
@@ -112,7 +117,7 @@ func TestUploadSSHPublicKey(t *testing.T) {
 
 							require.JSONEq(t, fmt.Sprintf(`{
 								"name": "fleeting",
-								"project_id": "dummy",
+								"project_id": "e0660b65-9dce-4f25-854d-1161a1aa96a9",
 								"public_key": %s
 							}`, publicKey), string(body))
 						},
@@ -124,7 +129,7 @@ func TestUploadSSHPublicKey(t *testing.T) {
 				result, err := group.UploadSSHPublicKey(ctx, []byte(sshKey.PublicKey))
 				require.NoError(t, err)
 
-				require.Equal(t, int64(1), result.ID)
+				require.Equal(t, "1", result.ID)
 				require.Equal(t, "fleeting", result.Name)
 			},
 		},
@@ -140,11 +145,13 @@ func TestUploadSSHPublicKey(t *testing.T) {
 			client := testutils.MakeTestClient(server.URL)
 
 			group := &InstanceGroup{
-				Name:     "fleeting",
-				log:      hclog.New(hclog.DefaultOptions),
-				settings: provider.Settings{},
-				group:    mock,
-				client:   client,
+				Name:      "fleeting",
+				log:       hclog.New(hclog.DefaultOptions),
+				settings:  provider.Settings{},
+				group:     mock,
+				client:    client,
+				Project:   "e0660b65-9dce-4f25-854d-1161a1aa96a9",
+				iamClient: scwIam.NewAPI(client),
 			}
 
 			testCase.run(t, ctx, group, server)
