@@ -99,7 +99,7 @@ func (h *ServerHandler) Create(ctx context.Context, group *instanceGroup, instan
 		return fmt.Errorf("could not power on server: %w", err)
 	}
 
-	// TODO: Fix image iD
+	// TODO: Support & test marketplace labels
 	*instance = *InstanceFromServer(result.Server)
 
 	instance.waitFn = func() error {
@@ -114,7 +114,7 @@ func (h *ServerHandler) Create(ctx context.Context, group *instanceGroup, instan
 }
 
 func (h *ServerHandler) Cleanup(ctx context.Context, group *instanceGroup, instance *Instance) error {
-	// TODO: Why
+	// TODO: Understand why this is needed, and if it can be removed.
 	// if instance.ID == 0 {
 	// 	return nil
 	// }
