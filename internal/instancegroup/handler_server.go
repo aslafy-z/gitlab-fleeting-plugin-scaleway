@@ -2,6 +2,7 @@ package instancegroup
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -20,7 +21,7 @@ func (h *ServerHandler) Create(ctx context.Context, group *instanceGroup, instan
 	instance.opts.Name = instance.Name
 	instance.opts.Tags = group.tags
 	instance.opts.Zone = *group.zone
-	instance.opts.Image = group.image
+	instance.opts.Image = &group.image
 	instance.opts.DynamicIPRequired = scw.BoolPtr(false)
 	instance.opts.Volumes = map[string]*scwInstance.VolumeServerTemplate{
 		"0": {
@@ -28,9 +29,6 @@ func (h *ServerHandler) Create(ctx context.Context, group *instanceGroup, instan
 			VolumeType: scwInstance.VolumeVolumeTypeSbsVolume,
 		},
 	}
-
-	var result *scwInstance.CreateServerResponse
-	var err error
 
 	var publicIPs []string
 	if !group.config.PublicIPv4Disabled {
@@ -63,30 +61,44 @@ func (h *ServerHandler) Create(ctx context.Context, group *instanceGroup, instan
 	}
 	instance.opts.PublicIPs = &publicIPs
 
+	var result *scwInstance.CreateServerResponse
+	var err error
+
+	// TODO: Move availability check to before the IP creation
+	// Check with a single request for all server types
 	for _, serverType := range group.serverTypes {
-		srvAvailabilityRes, err := group.instanceClient.GetServerTypesAvailability(
-			&scwInstance.GetServerTypesAvailabilityRequest{},
-			scw.WithAllPages(),
-			scw.WithContext(ctx),
-		)
-		if err != nil {
-			return fmt.Errorf("could not check server type availability: %w", err)
-		}
-		srvAvailability, exists := srvAvailabilityRes.Servers[serverType]
-		if !exists || srvAvailability.Availability != scwInstance.ServerTypesAvailabilityAvailable {
-			group.log.Warn("server type not available", "server_type", serverType)
-			continue
-		}
+		// srvAvailabilityRes, err := group.instanceClient.GetServerTypesAvailability(
+		// 	&scwInstance.GetServerTypesAvailabilityRequest{
+		// 		Zone: *group.zone,
+		// 	},
+		// 	scw.WithAllPages(),
+		// 	scw.WithContext(ctx),
+		// )
+		// if err != nil {
+		// 	return fmt.Errorf("could not check server type availability: %w", err)
+		// }
+		// srvAvailability, exists := srvAvailabilityRes.Servers[serverType]
+		// if !exists || srvAvailability.Availability != scwInstance.ServerTypesAvailabilityAvailable {
+		// 	group.log.Warn("server type not available", "server_type", serverType)
+		// 	continue
+		// }
 
 		instance.opts.CommercialType = serverType
 		result, err = group.instanceClient.CreateServer(
 			instance.opts,
 			scw.WithContext(ctx),
 		)
-		if err != nil {
-			return fmt.Errorf("could not request instance creation: %w", err)
+		var outOfStockError *scw.OutOfStockError
+		if err != nil && errors.As(err, &outOfStockError) {
+			group.log.Warn("server type not available", "server_type", serverType, "error", err)
+			continue
 		}
+
 		break
+	}
+
+	if err != nil {
+		return fmt.Errorf("could not request instance creation: %w", err)
 	}
 
 	err = group.instanceClient.SetServerUserData(
@@ -145,9 +157,24 @@ func (h *ServerHandler) Cleanup(ctx context.Context, group *instanceGroup, insta
 		return nil
 	}
 
-	err := group.instanceClient.DeleteIP(
+	serverRes, err := group.instanceClient.GetServer(
+		&scwInstance.GetServerRequest{
+			ServerID: instance.ID,
+		},
+		scw.WithContext(ctx),
+	)
+	if err != nil {
+		var notFoundErr *scw.ResourceNotFoundError
+		if errors.As(err, &notFoundErr) {
+			return nil
+		}
+		fmt.Printf("=== NOT OK: %T\n", err)
+		return fmt.Errorf("could not get server: %w", err)
+	}
+
+	err = group.instanceClient.DeleteIP(
 		&scwInstance.DeleteIPRequest{
-			IP: instance.Server.PublicIPs[0].ID,
+			IP: serverRes.Server.PublicIPs[0].ID,
 		},
 		scw.WithContext(ctx),
 	)
@@ -169,7 +196,7 @@ func (h *ServerHandler) Cleanup(ctx context.Context, group *instanceGroup, insta
 	_, err = group.instanceClient.DetachServerVolume(
 		&scwInstance.DetachServerVolumeRequest{
 			ServerID: instance.ID,
-			VolumeID: instance.Server.Volumes["0"].ID,
+			VolumeID: serverRes.Server.Volumes["0"].ID,
 		},
 		scw.WithContext(ctx),
 	)
@@ -179,7 +206,7 @@ func (h *ServerHandler) Cleanup(ctx context.Context, group *instanceGroup, insta
 
 	err = group.instanceClient.DeleteVolume(
 		&scwInstance.DeleteVolumeRequest{
-			VolumeID: instance.Server.Volumes["0"].ID,
+			VolumeID: serverRes.Server.Volumes["0"].ID,
 		},
 		scw.WithContext(ctx),
 	)

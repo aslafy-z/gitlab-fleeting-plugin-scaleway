@@ -16,6 +16,7 @@ import (
 	"github.com/aslafy-z/gitlab-fleeting-plugin-scaleway/internal/testutils"
 	"github.com/hetznercloud/hcloud-go/v2/hcloud/exp/kit/sshutil"
 	"github.com/hetznercloud/hcloud-go/v2/hcloud/exp/mockutil"
+	scwBlock "github.com/scaleway/scaleway-sdk-go/api/block/v1"
 	scwIam "github.com/scaleway/scaleway-sdk-go/api/iam/v1alpha1"
 	scwInstance "github.com/scaleway/scaleway-sdk-go/api/instance/v1"
 )
@@ -485,11 +486,13 @@ func TestShutdown(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			mock := instancegroup.NewMockInstanceGroup(ctrl)
 			group := &InstanceGroup{
-				log:       hclog.New(hclog.DefaultOptions),
-				settings:  provider.Settings{},
-				group:     mock,
-				client:    client,
-				iamClient: scwIam.NewAPI(client),
+				log:            hclog.New(hclog.DefaultOptions),
+				settings:       provider.Settings{},
+				group:          mock,
+				client:         client,
+				iamClient:      scwIam.NewAPI(client),
+				blockClient:    scwBlock.NewAPI(client),
+				instanceClient: scwInstance.NewAPI(client),
 			}
 
 			testCase.run(t, group, server)

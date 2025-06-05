@@ -50,7 +50,7 @@ type instanceGroup struct {
 
 	zone        *scw.Zone
 	serverTypes []string
-	image       *string
+	image       string
 	tags        []string
 
 	randomNameFn func() string
@@ -94,7 +94,7 @@ func (g *instanceGroup) Init(ctx context.Context) (err error) {
 	); err != nil {
 		return fmt.Errorf("image not found: %s: %w", g.config.Image, err)
 	}
-	g.image = &g.config.Image
+	g.image = g.config.Image
 
 	g.tags = make([]string, 0, len(g.config.Tags))
 	if g.config.Tags != nil {

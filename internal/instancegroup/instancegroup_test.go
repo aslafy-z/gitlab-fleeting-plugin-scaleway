@@ -67,11 +67,17 @@ func TestInit(t *testing.T) {
 			},
 		},
 		{
-			name:   "invalid zone",
-			config: DefaultTestConfig,
+			name: "invalid zone",
+			config: Config{
+				Zone:        "do-not-exist",
+				ServerTypes: []string{"PRO2-XS"},
+				Image:       "1fa98915-fc85-40d9-95ea-65a06ca8b396",
+				VolumeSize:  10,
+				Tags:        []string{"key=value"},
+			},
 			run: func(t *testing.T, group *instanceGroup, server *mockutil.Server) {
 				err := group.Init(context.Background())
-				require.EqualError(t, err, "zone not found: fr-par-1")
+				require.EqualError(t, err, "zone not found: do-not-exist")
 			},
 		},
 		{
@@ -100,6 +106,7 @@ func TestInit(t *testing.T) {
 			run: func(t *testing.T, group *instanceGroup, server *mockutil.Server) {
 				server.Expect([]mockutil.Request{
 					testutils.GetServerTypePRO2XSRequest,
+					testutils.GetServerTypePRO2SRequest,
 					{
 						Method: "GET", Path: "/instance/v1/zones/fr-par-1/images/1fa98915-fc85-40d9-95ea-65a06ca8b396",
 						Status: 404,
@@ -118,7 +125,13 @@ func TestInit(t *testing.T) {
 
 			log := hclog.New(hclog.DefaultOptions)
 
-			group := &instanceGroup{name: "fleeting", config: testCase.config, log: log, instanceClient: scwInstance.NewAPI(client), blockClient: scwBlock.NewAPI(client)}
+			group := &instanceGroup{
+				name:           "fleeting",
+				config:         testCase.config,
+				log:            log,
+				blockClient:    scwBlock.NewAPI(client),
+				instanceClient: scwInstance.NewAPI(client),
+			}
 
 			testCase.run(t, group, server)
 		})

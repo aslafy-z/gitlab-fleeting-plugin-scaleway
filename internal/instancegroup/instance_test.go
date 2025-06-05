@@ -10,7 +10,7 @@ import (
 
 func TestInstanceFromServer(t *testing.T) {
 	instance := InstanceFromServer(&scwInstance.Server{ID: "1", Name: "fleeting-a", State: scwInstance.ServerStateRunning})
-	require.Equal(t, int64(1), instance.ID)
+	require.Equal(t, "1", instance.ID)
 	require.Equal(t, "fleeting-a", instance.Name)
 	require.NotNil(t, instance.Server)
 	require.Equal(t, scwInstance.ServerStateRunning, instance.Server.State)
