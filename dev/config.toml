@@ -7,7 +7,7 @@ log_level = "info"
 log_format = "text"
 
 [[runners]]
-name = "hetzner-docker-autoscaler"
+name = "scaleway-docker-autoscaler"
 url = "https://gitlab.com"
 token = "$RUNNER_TOKEN"
 
@@ -18,7 +18,7 @@ image = "alpine:latest"
 volumes = ["/cache"]
 
 [runners.autoscaler]
-plugin = "fleeting-plugin-hetzner"
+plugin = "fleeting-plugin-scaleway"
 
 capacity_per_instance = 2
 max_instances = 5

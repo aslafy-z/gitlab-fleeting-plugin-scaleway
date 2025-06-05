@@ -1,4 +1,4 @@
-package hetzner
+package scaleway
 
 import (
 	"os"
@@ -20,12 +20,15 @@ func TestValidate(t *testing.T) {
 		{
 			name: "valid",
 			group: InstanceGroup{
-				Name:        "fleeting",
-				Token:       "dummy",
-				Location:    "hel1",
-				ServerTypes: []string{"cpx11"},
-				Image:       "debian-12",
-				VolumeSize:  15,
+				Name:         "fleeting",
+				AccessKey:    "dummy",
+				SecretKey:    "dummy",
+				Organization: "dummy",
+				Project:      "dummy",
+				Zone:         "hel1",
+				ServerType:   "PRO2-XS",
+				Image:        "1fa98915-fc85-40d9-95ea-65a06ca8b396",
+				VolumeSize:   15,
 			},
 			assert: func(t *testing.T, group InstanceGroup, err error) {
 				assert.NoError(t, err)
@@ -36,19 +39,22 @@ func TestValidate(t *testing.T) {
 		{
 			name: "valid with env",
 			group: InstanceGroup{
-				Name:        "fleeting",
-				Token:       "dummy",
-				Location:    "hel1",
-				ServerTypes: []string{"cpx11"},
-				Image:       "debian-12",
+				Name:         "fleeting",
+				AccessKey:    "dummy",
+				SecretKey:    "dummy",
+				Organization: "dummy",
+				Project:      "dummy",
+				Zone:         "hel1",
+				ServerType:   "PRO2-XS",
+				Image:        "1fa98915-fc85-40d9-95ea-65a06ca8b396",
 			},
 			env: map[string]string{
-				"HCLOUD_TOKEN":    "value",
-				"HCLOUD_ENDPOINT": "value",
+				"SCW_ACCESS_KEY": "value",
+				"SCW_API_URL":    "value",
 			},
 			assert: func(t *testing.T, group InstanceGroup, err error) {
 				assert.NoError(t, err)
-				assert.Equal(t, "value", group.Token)
+				assert.Equal(t, "value", group.AccessKey)
 				assert.Equal(t, "value", group.Endpoint)
 			},
 		},
@@ -58,8 +64,11 @@ func TestValidate(t *testing.T) {
 			assert: func(t *testing.T, group InstanceGroup, err error) {
 				assert.Error(t, err)
 				assert.Equal(t, `missing required plugin config: name
-missing required plugin config: token
-missing required plugin config: location
+missing required plugin config: access_key
+missing required plugin config: secret_key
+missing required plugin config: organization
+missing required plugin config: project
+missing required plugin config: zone
 missing required plugin config: server_type
 missing required plugin config: image`, err.Error())
 			},
@@ -67,11 +76,14 @@ missing required plugin config: image`, err.Error())
 		{
 			name: "winrm",
 			group: InstanceGroup{
-				Name:        "fleeting",
-				Token:       "dummy",
-				Location:    "hel1",
-				ServerTypes: []string{"cpx11"},
-				Image:       "debian-12",
+				Name:         "fleeting",
+				AccessKey:    "dummy",
+				SecretKey:    "dummy",
+				Organization: "dummy",
+				Project:      "dummy",
+				Zone:         "hel1",
+				ServerType:   "PRO2-XS",
+				Image:        "1fa98915-fc85-40d9-95ea-65a06ca8b396",
 				settings: provider.Settings{
 					ConnectorConfig: provider.ConnectorConfig{
 						Protocol: "winrm",
@@ -87,10 +99,12 @@ missing required plugin config: image`, err.Error())
 			name: "user data",
 			group: InstanceGroup{
 				Name:         "fleeting",
-				Token:        "dummy",
-				Location:     "hel1",
-				ServerTypes:  []string{"cpx11"},
-				Image:        "debian-12",
+				AccessKey:    "dummy",
+				SecretKey:    "dummy",
+				Organization: "dummy",
+				Project:      "dummy",
+				Zone:         "hel1",
+				ServerType:   "PRO2-XS",
 				UserData:     "dummy",
 				UserDataFile: "dummy",
 			},
@@ -102,12 +116,14 @@ missing required plugin config: image`, err.Error())
 		{
 			name: "volume size",
 			group: InstanceGroup{
-				Name:        "fleeting",
-				Token:       "dummy",
-				Location:    "hel1",
-				ServerTypes: []string{"cpx11"},
-				Image:       "debian-12",
-				VolumeSize:  8,
+				Name:         "fleeting",
+				AccessKey:    "dummy",
+				SecretKey:    "dummy",
+				Organization: "dummy",
+				Project:      "dummy",
+				Zone:         "hel1",
+				ServerType:   "PRO2-XS",
+				VolumeSize:   8,
 			},
 			assert: func(t *testing.T, group InstanceGroup, err error) {
 				assert.Error(t, err)
@@ -117,8 +133,8 @@ missing required plugin config: image`, err.Error())
 	}
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			t.Setenv("HCLOUD_TOKEN", "")
-			t.Setenv("HCLOUD_ENDPOINT", "")
+			t.Setenv("SCW_ACCESS_KEY", "")
+			t.Setenv("SCW_API_URL", "")
 
 			for key, value := range testCase.env {
 				t.Setenv(key, value)

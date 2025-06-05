@@ -7,17 +7,11 @@ error() {
   exit 1
 }
 
-command -v hcloud > /dev/null || error "hcloud command not found!"
+command -v scw > /dev/null || error "scw command not found!"
 
-servers=$(hcloud server list -l instance-group=dev-docker-autoscaler -o json | jq '.[].id')
-volumes=$(hcloud volume list -l instance-group=dev-docker-autoscaler -o json | jq '.[].id')
+servers=$(scw instance server list tags.0=instance-group=dev-docker-autoscaler -o template="{{ .ID }}")
 
 if [[ -n "$servers" ]]; then
   # shellcheck disable=SC2086
-  hcloud server delete $servers
-fi
-
-if [[ -n "$volumes" ]]; then
-  # shellcheck disable=SC2086
-  hcloud volume delete $volumes
+  scw instance server terminate $servers with-block=true with-ip=true
 fi

@@ -10,7 +10,7 @@
 
 # build artifacts
 out/*
-cmd/fleeting-plugin-hetzner/fleeting-plugin-hetzner
+cmd/fleeting-plugin-scaleway/fleeting-plugin-scaleway
 
 # Coverage
 /coverage.*

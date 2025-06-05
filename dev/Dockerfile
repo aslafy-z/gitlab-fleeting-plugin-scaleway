@@ -8,8 +8,8 @@ RUN go mod download
 ADD . /build/
 RUN ls -al
 
-RUN go build ./cmd/fleeting-plugin-hetzner
+RUN go build ./cmd/fleeting-plugin-scaleway
 
 FROM gitlab/gitlab-runner:alpine-v18.0.2
 
-COPY --from=builder /build/fleeting-plugin-hetzner /bin/fleeting-plugin-hetzner
+COPY --from=builder /build/fleeting-plugin-scaleway /bin/fleeting-plugin-scaleway

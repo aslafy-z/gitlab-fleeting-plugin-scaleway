@@ -5,15 +5,15 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/hetznercloud/hcloud-go/v2/hcloud"
+	scwInstance "github.com/scaleway/scaleway-sdk-go/api/instance/v1"
 )
 
 func TestInstanceFromServer(t *testing.T) {
-	instance := InstanceFromServer(&hcloud.Server{ID: 1, Name: "fleeting-a", Status: hcloud.ServerStatusRunning})
+	instance := InstanceFromServer(&scwInstance.Server{ID: "1", Name: "fleeting-a", State: scwInstance.ServerStateRunning})
 	require.Equal(t, int64(1), instance.ID)
 	require.Equal(t, "fleeting-a", instance.Name)
 	require.NotNil(t, instance.Server)
-	require.Equal(t, hcloud.ServerStatusRunning, instance.Server.Status)
+	require.Equal(t, scwInstance.ServerStateRunning, instance.Server.State)
 }
 
 func TestInstanceFromIID(t *testing.T) {
@@ -25,7 +25,7 @@ func TestInstanceFromIID(t *testing.T) {
 		{
 			name:     "success",
 			iid:      "fleeting-a:1",
-			instance: &Instance{Name: "fleeting-a", ID: 1},
+			instance: &Instance{Name: "fleeting-a", ID: "1"},
 		},
 		{
 			name:     "fail no separator",
@@ -59,7 +59,7 @@ func TestInstanceIID(t *testing.T) {
 	}{
 		{
 			name:     "success",
-			instance: &Instance{Name: "fleeting-a", ID: 1},
+			instance: &Instance{Name: "fleeting-a", ID: "1"},
 			iid:      "fleeting-a:1",
 		},
 	}

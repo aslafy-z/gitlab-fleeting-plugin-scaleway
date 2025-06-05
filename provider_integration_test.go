@@ -1,4 +1,4 @@
-package hetzner
+package scaleway
 
 import (
 	"context"
@@ -34,7 +34,7 @@ func TestProvisioning(t *testing.T) {
 
 	client := hcloud.NewClient(opts...)
 
-	pluginBinary := integration.BuildPluginBinary(t, "cmd/fleeting-plugin-hetzner", "fleeting-plugin-hetzner")
+	pluginBinary := integration.BuildPluginBinary(t, "cmd/fleeting-plugin-scaleway", "fleeting-plugin-scaleway")
 
 	t.Run("generated credentials", func(t *testing.T) {
 		t.Parallel()

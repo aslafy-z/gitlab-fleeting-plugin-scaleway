@@ -18,7 +18,7 @@ executor = "docker-autoscaler"
 image = "busybox:latest"
 
 [runners.autoscaler]
-plugin = "hetznercloud/fleeting-plugin-hetzner:latest"
+plugin = "hetznercloud/fleeting-plugin-scaleway:latest"
 
 update_interval = "1m"
 update_interval_when_expecting = "5s"

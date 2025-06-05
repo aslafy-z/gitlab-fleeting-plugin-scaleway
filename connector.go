@@ -1,45 +1,49 @@
-package hetzner
+package scaleway
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	"github.com/hetznercloud/hcloud-go/v2/hcloud/exp/kit/sshutil"
+	scwIam "github.com/scaleway/scaleway-sdk-go/api/iam/v1alpha1"
 )
 
-func (g *InstanceGroup) UploadSSHPublicKey(ctx context.Context, pub []byte) (sshKey *hcloud.SSHKey, err error) {
+func (g *InstanceGroup) UploadSSHPublicKey(ctx context.Context, pub []byte) (sshKey *scwIam.SSHKey, err error) {
 	fingerprint, err := sshutil.GetPublicKeyFingerprint(pub)
 	if err != nil {
 		return nil, fmt.Errorf("could not get ssh key fingerprint: %w", err)
 	}
 
-	sshKey, _, err = g.client.SSHKey.GetByFingerprint(ctx, fingerprint)
+	sshKeyRes, err := g.iamClient.ListSSHKeys(&scwIam.ListSSHKeysRequest{})
 	if err != nil {
-		return nil, fmt.Errorf("could not get ssh key: %w", err)
+		return nil, fmt.Errorf("could not list ssh keys: %w", err)
 	}
-	if sshKey != nil {
-		g.log.Info("using existing ssh key", "name", sshKey.Name, "fingerprint", sshKey.Fingerprint)
-		return sshKey, nil
-	}
+	if sshKeyRes.TotalCount > 0 {
+		for _, key := range sshKeyRes.SSHKeys {
+			if key.Fingerprint == fingerprint {
+				g.log.Info("using existing ssh key", "name", key.Name, "fingerprint", key.Fingerprint)
+				return key, nil
+			}
+		}
 
-	sshKey, _, err = g.client.SSHKey.GetByName(ctx, g.Name)
-	if err != nil {
-		return nil, fmt.Errorf("could not get ssh key: %w", err)
-	}
-	if sshKey != nil {
-		g.log.Warn("deleting existing ssh key", "name", sshKey.Name, "fingerprint", sshKey.Fingerprint)
-		_, err = g.client.SSHKey.Delete(ctx, sshKey)
-		if err != nil {
-			return nil, fmt.Errorf("could not delete ssh key: %w", err)
+		for _, key := range sshKeyRes.SSHKeys {
+			if key.Name == g.Name {
+				g.log.Warn("deleting existing ssh key", "name", key.Name, "fingerprint", key.Fingerprint)
+				err = g.iamClient.DeleteSSHKey(&scwIam.DeleteSSHKeyRequest{
+					SSHKeyID: key.ID,
+				})
+				if err != nil {
+					return nil, fmt.Errorf("could not delete existing ssh key: %w", err)
+				}
+			}
 		}
 	}
 
 	g.log.Info("uploading ssh key", "name", g.Name, "fingerprint", fingerprint)
-	sshKey, _, err = g.client.SSHKey.Create(ctx, hcloud.SSHKeyCreateOpts{
+	sshKey, err = g.iamClient.CreateSSHKey(&scwIam.CreateSSHKeyRequest{
 		Name:      g.Name,
-		Labels:    g.labels,
 		PublicKey: string(pub),
+		ProjectID: g.Project,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not upload ssh key: %w", err)

@@ -8,11 +8,26 @@ files/config.toml: config.toml
 ifndef RUNNER_TOKEN
 	$(error RUNNER_TOKEN is not defined)
 endif
-ifndef HCLOUD_TOKEN
-	$(error HCLOUD_TOKEN is not defined)
+ifndef SCW_ACCESS_KEY
+	$(error SCW_ACCESS_KEY is not defined)
+endif
+ifndef SCW_SECRET_KEY
+	$(error SCW_ACCESS_KEY is not defined)
+endif
+ifndef SCW_ORGANIZATION_ID
+	$(error SCW_ACCESS_KEY is not defined)
+endif
+ifndef SCW_PROJECT_ID
+	$(error SCW_ACCESS_KEY is not defined)
+endif
+ifndef SCW_DEFAULT_REGION
+	$(error SCW_ACCESS_KEY is not defined)
+endif
+ifndef SCW_DEFAULT_ZONE
+	$(error SCW_ACCESS_KEY is not defined)
 endif
 	mkdir -p files
-	envsubst '$$RUNNER_TOKEN,$$HCLOUD_TOKEN' < config.toml > "$@"
+	envsubst '$$RUNNER_TOKEN,$$SCW_ACCESS_KEY,$$SCW_SECRET_KEY,$$SCW_ORGANIZATION_ID,$$SCW_PROJECT_ID,$$SCW_DEFAULT_REGION,$$SCW_DEFAULT_ZONE' < config.toml > "$@"
 
 up: files/id_ed25519 files/config.toml
 	BUILDKIT_PROGRESS=plain docker compose up --build --detach

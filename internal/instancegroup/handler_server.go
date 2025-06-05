@@ -16,7 +16,7 @@ var _ CleanupHandler = (*ServerHandler)(nil)
 
 func (h *ServerHandler) Create(ctx context.Context, group *instanceGroup, instance *Instance) error {
 	instance.opts.Name = instance.Name
-	instance.opts.Labels = group.labels
+	instance.opts.Tags = group.Tags
 	instance.opts.Location = group.location
 	instance.opts.Image = group.image
 	instance.opts.SSHKeys = group.sshKeys

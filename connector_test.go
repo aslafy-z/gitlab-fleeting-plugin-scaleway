@@ -1,4 +1,4 @@
-package hetzner
+package scaleway
 
 import (
 	"context"
@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"testing"
 
 	"github.com/hashicorp/go-hclog"
@@ -15,10 +14,11 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud/exp/mockutil"
-	"github.com/hetznercloud/hcloud-go/v2/hcloud/schema"
 
-	"gitlab.com/hetznercloud/fleeting-plugin-hetzner/internal/instancegroup"
-	"gitlab.com/hetznercloud/fleeting-plugin-hetzner/internal/testutils"
+	"github.com/aslafy-z/gitlab-fleeting-plugin-scaleway/internal/instancegroup"
+	"github.com/aslafy-z/gitlab-fleeting-plugin-scaleway/internal/testutils"
+	scwIam "github.com/scaleway/scaleway-sdk-go/api/iam/v1alpha1"
+	scwInstance "github.com/scaleway/scaleway-sdk-go/api/instance/v1"
 )
 
 func TestUploadSSHPublicKey(t *testing.T) {
@@ -34,18 +34,16 @@ func TestUploadSSHPublicKey(t *testing.T) {
 				server.Expect([]mockutil.Request{
 					{
 						Method: "GET",
-						Want: func(t *testing.T, r *http.Request) {
-							require.Equal(t, "/ssh_keys?fingerprint="+url.QueryEscape(sshKey.Fingerprint), r.RequestURI)
-						},
+						Path:   "/iam/v1alpha1/ssh-keys",
 						Status: 200,
-						JSON:   schema.SSHKeyListResponse{SSHKeys: []schema.SSHKey{sshKey}},
+						JSON:   scwIam.ListSSHKeysResponse{SSHKeys: []*scwIam.SSHKey{&sshKey}, TotalCount: 1},
 					},
 				})
 
 				result, err := group.UploadSSHPublicKey(ctx, []byte(sshKey.PublicKey))
 				require.NoError(t, err)
 
-				require.Equal(t, int64(1), result.ID)
+				require.Equal(t, "1", result.ID)
 				require.Equal(t, "fleeting", result.Name)
 			},
 		},
@@ -57,19 +55,12 @@ func TestUploadSSHPublicKey(t *testing.T) {
 				server.Expect([]mockutil.Request{
 					{
 						Method: "GET",
-						Want: func(t *testing.T, r *http.Request) {
-							require.Equal(t, "/ssh_keys?fingerprint="+url.QueryEscape(sshKey.Fingerprint), r.RequestURI)
-						},
+						Path:   "/iam/v1alpha1/ssh-keys",
 						Status: 200,
-						JSON:   schema.SSHKeyListResponse{SSHKeys: []schema.SSHKey{}},
+						JSON:   scwIam.ListSSHKeysResponse{SSHKeys: []*scwIam.SSHKey{&sshKey}, TotalCount: 1},
 					},
 					{
-						Method: "GET", Path: "/ssh_keys?name=fleeting",
-						Status: 200,
-						JSON:   schema.SSHKeyListResponse{SSHKeys: []schema.SSHKey{}},
-					},
-					{
-						Method: "POST", Path: "/ssh_keys",
+						Method: "POST", Path: "/iam/v1alpha1/ssh-keys",
 						Want: func(t *testing.T, r *http.Request) {
 							body, err := io.ReadAll(r.Body)
 							require.NoError(t, err)
@@ -79,18 +70,19 @@ func TestUploadSSHPublicKey(t *testing.T) {
 
 							require.JSONEq(t, fmt.Sprintf(`{
 								"name": "fleeting",
+								"project_id": "dummy",
 								"public_key": %s
 							}`, publicKey), string(body))
 						},
-						Status: 201,
-						JSON:   schema.SSHKeyCreateResponse{SSHKey: sshKey},
+						Status: 200,
+						JSON:   scwIam.SSHKey(sshKey),
 					},
 				})
 
 				result, err := group.UploadSSHPublicKey(ctx, []byte(sshKey.PublicKey))
 				require.NoError(t, err)
 
-				require.Equal(t, int64(1), result.ID)
+				require.Equal(t, "1", result.ID)
 				require.Equal(t, "fleeting", result.Name)
 			},
 		},
@@ -102,23 +94,16 @@ func TestUploadSSHPublicKey(t *testing.T) {
 				server.Expect([]mockutil.Request{
 					{
 						Method: "GET",
-						Want: func(t *testing.T, r *http.Request) {
-							require.Equal(t, "/ssh_keys?fingerprint="+url.QueryEscape(sshKey.Fingerprint), r.RequestURI)
-						},
+						Path:   "/iam/v1alpha1/ssh-keys",
 						Status: 200,
-						JSON:   schema.SSHKeyListResponse{SSHKeys: []schema.SSHKey{}},
+						JSON:   scwIam.ListSSHKeysResponse{SSHKeys: []*scwIam.SSHKey{&sshKey}, TotalCount: 1},
 					},
 					{
-						Method: "GET", Path: "/ssh_keys?name=fleeting",
-						Status: 200,
-						JSON:   schema.SSHKeyListResponse{SSHKeys: []schema.SSHKey{sshKey}},
-					},
-					{
-						Method: "DELETE", Path: "/ssh_keys/1",
+						Method: "DELETE", Path: "/iam/v1alpha1/ssh-keys/1",
 						Status: 204,
 					},
 					{
-						Method: "POST", Path: "/ssh_keys",
+						Method: "POST", Path: "/iam/v1alpha1/ssh-keys",
 						Want: func(t *testing.T, r *http.Request) {
 							body, err := io.ReadAll(r.Body)
 							require.NoError(t, err)
@@ -128,11 +113,12 @@ func TestUploadSSHPublicKey(t *testing.T) {
 
 							require.JSONEq(t, fmt.Sprintf(`{
 								"name": "fleeting",
+								"project_id": "dummy",
 								"public_key": %s
 							}`, publicKey), string(body))
 						},
-						Status: 201,
-						JSON:   schema.SSHKeyCreateResponse{SSHKey: sshKey},
+						Status: 200,
+						JSON:   scwIam.SSHKey(sshKey),
 					},
 				})
 
@@ -155,11 +141,13 @@ func TestUploadSSHPublicKey(t *testing.T) {
 			client := testutils.MakeTestClient(server.URL)
 
 			group := &InstanceGroup{
-				Name:     "fleeting",
-				log:      hclog.New(hclog.DefaultOptions),
-				settings: provider.Settings{},
-				group:    mock,
-				client:   client,
+				Name:           "fleeting",
+				log:            hclog.New(hclog.DefaultOptions),
+				settings:       provider.Settings{},
+				group:          mock,
+				client:         client,
+				iamClient:      scwIam.NewAPI(client),
+				instanceClient: scwInstance.NewAPI(client),
 			}
 
 			testCase.run(t, ctx, group, server)

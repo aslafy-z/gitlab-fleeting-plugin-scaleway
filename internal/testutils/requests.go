@@ -1,45 +1,41 @@
 package testutils
 
 import (
-	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	"github.com/hetznercloud/hcloud-go/v2/hcloud/exp/mockutil"
-	"github.com/hetznercloud/hcloud-go/v2/hcloud/schema"
+	scwInstance "github.com/scaleway/scaleway-sdk-go/api/instance/v1"
 )
 
 var (
-	GetLocationHel1Request = mockutil.Request{
-		Method: "GET", Path: "/locations?name=hel1",
+	GetServerTypePRO2XSRequest = mockutil.Request{
+		Method: "GET", Path: "/instance/v1/zones/hell/products/servers",
 		Status: 200,
-		JSON: schema.LocationListResponse{
-			Locations: []schema.Location{
-				{ID: 3, Name: "hel1"},
+		JSON: scwInstance.ListServersTypesResponse{
+			Servers: map[string]*scwInstance.ServerType{
+				"PRO2-XS": {
+					Arch: "x86_64",
+				},
 			},
+			TotalCount: 1,
 		},
 	}
-	GetServerTypeCPX11Request = mockutil.Request{
-		Method: "GET", Path: "/server_types?name=cpx11",
+	GetServerTypePRO2SRequest = mockutil.Request{
+		Method: "GET", Path: "/instance/v1/zones/hell/products/servers",
 		Status: 200,
-		JSON: schema.ServerTypeListResponse{
-			ServerTypes: []schema.ServerType{
-				{ID: 1, Name: "cpx11", Architecture: "x86"},
+		JSON: scwInstance.ListServersTypesResponse{
+			Servers: map[string]*scwInstance.ServerType{
+				"PRO2-S": {
+					Arch: "x86_64",
+				},
 			},
+			TotalCount: 1,
 		},
 	}
-	GetServerTypeCX22Request = mockutil.Request{
-		Method: "GET", Path: "/server_types?name=cx22",
+	GetImageUbuntu2404Request = mockutil.Request{
+		Method: "GET", Path: "/instance/v1/zones/hell/images/1fa98915-fc85-40d9-95ea-65a06ca8b396",
 		Status: 200,
-		JSON: schema.ServerTypeListResponse{
-			ServerTypes: []schema.ServerType{
-				{ID: 2, Name: "cx22", Architecture: "x86"},
-			},
-		},
-	}
-	GetImageDebian12Request = mockutil.Request{
-		Method: "GET", Path: "/images?architecture=x86&include_deprecated=true&name=debian-12",
-		Status: 200,
-		JSON: schema.ImageListResponse{
-			Images: []schema.Image{
-				{ID: 114690387, Name: hcloud.Ptr("debian-12"), OSFlavor: "debian", OSVersion: hcloud.Ptr("12"), Architecture: "x86"},
+		JSON: scwInstance.GetImageResponse{
+			Image: &scwInstance.Image{
+				ID: "1fa98915-fc85-40d9-95ea-65a06ca8b396",
 			},
 		},
 	}

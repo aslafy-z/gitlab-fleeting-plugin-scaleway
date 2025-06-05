@@ -319,7 +319,7 @@ executor = "docker-autoscaler"
 image = "alpine:latest"
 
 [runners.autoscaler]
-plugin = "hetznercloud/fleeting-plugin-hetzner:latest"
+plugin = "hetznercloud/fleeting-plugin-scaleway:latest"
 
 capacity_per_instance = 4
 max_instances = 5
@@ -375,7 +375,7 @@ gitlab-runner fleeting install
 
 ```
 Runtime platform                                    arch=amd64 os=linux pid=2524 revision=12030cf4 version=17.5.3
-runner: 11Qjxy-Gi, plugin: hetznercloud/fleeting-plugin-hetzner:latest, path: /root/.config/fleeting/plugins/registry.gitlab.com/hetznercloud/fleeting-plugin-hetzner/0.6.0/plugin
+runner: 11Qjxy-Gi, plugin: hetznercloud/fleeting-plugin-scaleway:latest, path: /root/.config/fleeting/plugins/registry.github.com/aslafy-z/gitlab-fleeting-plugin-scaleway/0.6.0/plugin
 ```
 
 </details>
@@ -400,7 +400,7 @@ systemctl status --output=cat --no-pager gitlab-runner
         CPU: 1.880s
      CGroup: /system.slice/gitlab-runner.service
              ├─2587 /usr/bin/gitlab-runner run --config /etc/gitlab-runner/config.toml --working-directory /home/gitlab-runner --service gitlab-runner --user gitlab-runner
-             └─2595 /root/.config/fleeting/plugins/registry.gitlab.com/hetznercloud/fleeting-plugin-hetzner/0.6.0/plugin
+             └─2595 /root/.config/fleeting/plugins/registry.github.com/aslafy-z/gitlab-fleeting-plugin-scaleway/0.6.0/plugin
 
 time="2024-11-13T09:57:25Z" level=info msg="plugin initialized" build info="sha=85c314ff; ref=refs/pipelines/1528252336; go=go1.23.2; built_at=2024-11-05T15:20:21+0000; os_arch=linux/amd64" runner=11Qjxy-Gi subsystem=taskscaler version=v0.6.0
 time="2024-11-13T09:57:26Z" level=info msg="required scaling change" capacity-info="instance_count:0,max_instance_count:5,acquired:0,unavailable_capacity:0,pending:0,reserved:0,idle_count:8,scale_factor:0,scale_factor_limit:0,capacity_per_instance:4" required=2 runner=11Qjxy-Gi subsystem=taskscaler

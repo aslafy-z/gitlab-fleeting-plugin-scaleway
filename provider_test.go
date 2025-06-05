@@ -1,4 +1,4 @@
-package hetzner
+package scaleway
 
 import (
 	"context"
@@ -14,16 +14,16 @@ import (
 	"gitlab.com/gitlab-org/fleeting/fleeting/provider"
 	"go.uber.org/mock/gomock"
 
+	"github.com/aslafy-z/gitlab-fleeting-plugin-scaleway/internal/instancegroup"
+	"github.com/aslafy-z/gitlab-fleeting-plugin-scaleway/internal/testutils"
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	"github.com/hetznercloud/hcloud-go/v2/hcloud/exp/kit/sshutil"
 	"github.com/hetznercloud/hcloud-go/v2/hcloud/exp/mockutil"
 	"github.com/hetznercloud/hcloud-go/v2/hcloud/schema"
-
-	"gitlab.com/hetznercloud/fleeting-plugin-hetzner/internal/instancegroup"
-	"gitlab.com/hetznercloud/fleeting-plugin-hetzner/internal/testutils"
+	scwIam "github.com/scaleway/scaleway-sdk-go/api/iam/v1alpha1"
 )
 
-func sshKeyFixture(t *testing.T) ([]byte, schema.SSHKey) {
+func sshKeyFixture(t *testing.T) ([]byte, scwIam.SSHKey) {
 	t.Helper()
 
 	privateKey, publicKey, err := sshutil.GenerateKeyPair()
@@ -36,7 +36,7 @@ func sshKeyFixture(t *testing.T) ([]byte, schema.SSHKey) {
 		t.Fatal(err)
 	}
 
-	return privateKey, schema.SSHKey{ID: 1, Name: "fleeting", Fingerprint: fingerprint, PublicKey: string(publicKey)}
+	return privateKey, scwIam.SSHKey{ID: "1", Name: "fleeting", ProjectID: "dummy", Fingerprint: fingerprint, PublicKey: string(publicKey)}
 }
 
 func TestInit(t *testing.T) {

@@ -1,11 +1,11 @@
-# [Fleeting Plugin Hetzner](https://gitlab.com/hetznercloud/fleeting-plugin-hetzner)
+# [Fleeting Plugin Hetzner](https://github.com/aslafy-z/gitlab-fleeting-plugin-scaleway)
 
-[![Pipeline Status](https://gitlab.com/hetznercloud/fleeting-plugin-hetzner/badges/main/pipeline.svg)](https://gitlab.com/hetznercloud/fleeting-plugin-hetzner/-/pipelines?scope=branches&ref=main)
-[![Coverage](https://gitlab.com/hetznercloud/fleeting-plugin-hetzner/badges/main/coverage.svg?job=test)](https://gitlab.com/hetznercloud/fleeting-plugin-hetzner/-/pipelines?scope=branches&ref=main)
-[![Go Report](https://goreportcard.com/badge/gitlab.com/hetznercloud/fleeting-plugin-hetzner)](https://goreportcard.com/report/gitlab.com/hetznercloud/fleeting-plugin-hetzner)
-[![Releases](https://img.shields.io/gitlab/v/release/hetznercloud%2Ffleeting-plugin-hetzner)](https://gitlab.com/hetznercloud/fleeting-plugin-hetzner/-/releases)
+[![Pipeline Status](https://github.com/aslafy-z/gitlab-fleeting-plugin-scaleway/badges/main/pipeline.svg)](https://github.com/aslafy-z/gitlab-fleeting-plugin-scaleway/-/pipelines?scope=branches&ref=main)
+[![Coverage](https://github.com/aslafy-z/gitlab-fleeting-plugin-scaleway/badges/main/coverage.svg?job=test)](https://github.com/aslafy-z/gitlab-fleeting-plugin-scaleway/-/pipelines?scope=branches&ref=main)
+[![Go Report](https://goreportcard.com/badge/github.com/aslafy-z/gitlab-fleeting-plugin-scaleway)](https://goreportcard.com/report/github.com/aslafy-z/gitlab-fleeting-plugin-scaleway)
+[![Releases](https://img.shields.io/gitlab/v/release/hetznercloud%2Ffleeting-plugin-scaleway)](https://github.com/aslafy-z/gitlab-fleeting-plugin-scaleway/-/releases)
 ![Maturity](https://img.shields.io/badge/maturity-general%20availability-yellow)
-[![License](https://img.shields.io/gitlab/license/hetznercloud%2Ffleeting-plugin-hetzner)](https://gitlab.com/hetznercloud/fleeting-plugin-hetzner/-/blob/main/LICENSE)
+[![License](https://img.shields.io/gitlab/license/hetznercloud%2Ffleeting-plugin-scaleway)](https://github.com/aslafy-z/gitlab-fleeting-plugin-scaleway/-/blob/main/LICENSE)
 
 A [fleeting](https://gitlab.com/gitlab-org/fleeting/fleeting) plugin for [Hetzner Cloud](https://www.hetzner.com/cloud/).
 
@@ -72,13 +72,13 @@ Use an approach like this:
 1. Build the plugin by running the following:
 
    ```shell
-   $ cd cmd/fleeting-plugin-hetzner
+   $ cd cmd/fleeting-plugin-scaleway
    $ go build
    ```
 
 1. Set up the plugin in GitLab Runner's `config.toml` file using the approach described above, but
-   update `plugin = "/path/to/fleeting-plugin-hetzner"` to point to your
-   `cmd/fleeting-plugin-hetzner/fleeting-plugin-hetzner`
+   update `plugin = "/path/to/fleeting-plugin-scaleway"` to point to your
+   `cmd/fleeting-plugin-scaleway/fleeting-plugin-scaleway`
 
 1. Run `gitlab-runner run` or similar, to run GitLab Runner interactively as a foreground process.
 
@@ -125,4 +125,4 @@ was prepared by releaser-pleaser.
 
 ## History
 
-The project started out as a fork of the existing [gitlab-org/fleeting/plugins/aws](https://gitlab.com/hetznercloud/fleeting-plugin-hetzner/-/commit/5c71bcde58f5eb1272828bf34051b02510e7f0de) plugin, gradually replacing the AWS calls with calls to the [Hetzner Cloud API](https://github.com/hetznercloud/hcloud-go). To all the people involved in this initial work, **thanks a lot**!
+The project started out as a fork of the existing [gitlab-org/fleeting/plugins/aws](https://github.com/aslafy-z/gitlab-fleeting-plugin-scaleway/-/commit/5c71bcde58f5eb1272828bf34051b02510e7f0de) plugin, gradually replacing the AWS calls with calls to the [Hetzner Cloud API](https://github.com/hetznercloud/hcloud-go). To all the people involved in this initial work, **thanks a lot**!

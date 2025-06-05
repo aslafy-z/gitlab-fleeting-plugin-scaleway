@@ -1,11 +1,11 @@
-package hetzner
+package scaleway
 
 import (
 	"gitlab.com/gitlab-org/fleeting/fleeting/plugin"
 )
 
 var (
-	NAME      = "fleeting-plugin-hetzner"
+	NAME      = "fleeting-plugin-scaleway"
 	VERSION   = "dev"
 	REVISION  = "HEAD"
 	REFERENCE = "HEAD"

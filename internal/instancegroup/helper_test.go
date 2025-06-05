@@ -8,11 +8,12 @@ import (
 	"testing"
 
 	"github.com/hashicorp/go-hclog"
+	scwInstance "github.com/scaleway/scaleway-sdk-go/api/instance/v1"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud/exp/mockutil"
 
-	"gitlab.com/hetznercloud/fleeting-plugin-hetzner/internal/testutils"
+	"github.com/aslafy-z/gitlab-fleeting-plugin-scaleway/internal/testutils"
 )
 
 func mustUnmarshal[T any](t *testing.T, src io.ReadCloser, dest T) {
@@ -28,10 +29,8 @@ func setupInstanceGroup(t *testing.T, config Config, requests []mockutil.Request
 
 	requests = append(
 		[]mockutil.Request{
-			testutils.GetLocationHel1Request,
-			testutils.GetServerTypeCPX11Request,
-			testutils.GetServerTypeCX22Request,
-			testutils.GetImageDebian12Request,
+			testutils.GetServerTypePRO2XSRequest,
+			testutils.GetImageUbuntu2404Request,
 		},
 		requests...,
 	)
@@ -41,7 +40,7 @@ func setupInstanceGroup(t *testing.T, config Config, requests []mockutil.Request
 
 	log := hclog.New(hclog.DefaultOptions)
 
-	group := &instanceGroup{name: "fleeting", config: config, log: log, client: client}
+	group := &instanceGroup{name: "fleeting", config: config, log: log, instanceClient: scwInstance.NewAPI(client)}
 	group.randomNameFn = makeRandomNameFn(group.name)
 
 	err := group.Init(context.Background())

@@ -1,4 +1,4 @@
-package hetzner
+package scaleway
 
 import (
 	"errors"
@@ -24,15 +24,47 @@ func (g *InstanceGroup) validate() error {
 
 	// Environment variables
 	{
-		value, err := envutil.LookupEnvWithFile("HCLOUD_TOKEN")
+		value, err := envutil.LookupEnvWithFile("SCW_ACCESS_KEY")
 		if err != nil {
 			errs = append(errs, err)
 		} else if value != "" {
-			g.Token = value
+			g.AccessKey = value
 		}
 	}
 	{
-		value, err := envutil.LookupEnvWithFile("HCLOUD_ENDPOINT")
+		value, err := envutil.LookupEnvWithFile("SCW_SECRET_KEY")
+		if err != nil {
+			errs = append(errs, err)
+		} else if value != "" {
+			g.SecretKey = value
+		}
+	}
+	{
+		value, err := envutil.LookupEnvWithFile("SCW_ORGANIZATION_ID")
+		if err != nil {
+			errs = append(errs, err)
+		} else if value != "" {
+			g.Organization = value
+		}
+	}
+	{
+		value, err := envutil.LookupEnvWithFile("SCW_PROJECT_ID")
+		if err != nil {
+			errs = append(errs, err)
+		} else if value != "" {
+			g.Project = value
+		}
+	}
+	{
+		value, err := envutil.LookupEnvWithFile("SCW_DEFAULT_ZONE")
+		if err != nil {
+			errs = append(errs, err)
+		} else if value != "" {
+			g.Zone = value
+		}
+	}
+	{
+		value, err := envutil.LookupEnvWithFile("SCW_API_URL")
 		if err != nil {
 			errs = append(errs, err)
 		} else if value != "" {
@@ -45,15 +77,27 @@ func (g *InstanceGroup) validate() error {
 		errs = append(errs, fmt.Errorf("missing required plugin config: name"))
 	}
 
-	if g.Token == "" {
-		errs = append(errs, fmt.Errorf("missing required plugin config: token"))
+	if g.AccessKey == "" {
+		errs = append(errs, fmt.Errorf("missing required plugin config: access_key"))
 	}
 
-	if g.Location == "" {
-		errs = append(errs, fmt.Errorf("missing required plugin config: location"))
+	if g.SecretKey == "" {
+		errs = append(errs, fmt.Errorf("missing required plugin config: secret_key"))
 	}
 
-	if len(g.ServerTypes) == 0 {
+	if g.Organization == "" {
+		errs = append(errs, fmt.Errorf("missing required plugin config: organization"))
+	}
+
+	if g.Project == "" {
+		errs = append(errs, fmt.Errorf("missing required plugin config: project"))
+	}
+
+	if g.Zone == "" {
+		errs = append(errs, fmt.Errorf("missing required plugin config: zone"))
+	}
+
+	if g.ServerType == "" {
 		errs = append(errs, fmt.Errorf("missing required plugin config: server_type"))
 	}
 
