@@ -23,5 +23,5 @@ func TestBaseHandlerCreate(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "fleeting-a", instance.Name)
-	assert.Equal(t, int64(0), instance.ID)
+	assert.Equal(t, "", instance.ID)
 }

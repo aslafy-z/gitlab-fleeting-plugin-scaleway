@@ -8,7 +8,7 @@ concurrent = 20 # max_instances * capacity_per_instance
 check_interval = 0
 
 [[runners]]
-name = "hetzner-docker-autoscaler"
+name = "scaleway-docker-autoscaler"
 url = "https://gitlab.com" # TODO: Change me with the GitLab instance URL for the runner
 token = "$RUNNER_TOKEN" # TODO: Change me with the runner authentication token
 
@@ -18,7 +18,7 @@ executor = "docker-autoscaler"
 image = "busybox:latest"
 
 [runners.autoscaler]
-plugin = "hetznercloud/fleeting-plugin-hetzner:latest"
+plugin = "aslafy-z/gitlab-fleeting-plugin-scaleway:latest"
 
 update_interval = "1m"
 update_interval_when_expecting = "5s"
@@ -32,15 +32,17 @@ max_use_count = 0
 instance_ready_command = "cloud-init status --wait || test $? -eq 2"
 
 [runners.autoscaler.plugin_config]
-name = "hetzner-docker-autoscaler"
-token = "$HCLOUD_TOKEN" # TODO: Change me with the Hetzner Cloud authentication token
+name = "scaleway-docker-autoscaler"
+access_key = "$SCW_ACCESS_KEY"
+secret_key = "$SCW_SECRET_KEY"
+organization = "$SCW_ORGANIZATION_ID"
+project = "$SCW_PROJECT_ID"
+zone = "$SCW_DEFAULT_ZONE"
 
-location = "hel1"
-server_type = "cpx41"
-image = "debian-12"
-private_networks = []
+server_type = ["PRO2-XS", "PRO2-S"]
+image = "ubuntu_noble"
 
-user_data = """#cloud-config
+cloud_init = """#cloud-config
 package_update: true
 package_upgrade: true
 
@@ -53,11 +55,6 @@ apt:
 packages:
   - ca-certificates
   - docker-ce
-
-swap:
-  filename: /var/swap.bin
-  size: auto
-  maxsize: 4294967296 # 4GB
 """
 
 [runners.autoscaler.connector_config]

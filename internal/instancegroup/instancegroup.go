@@ -4,16 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"maps"
 	"reflect"
 	"slices"
 
 	"github.com/hashicorp/go-hclog"
-
-	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	"github.com/hetznercloud/hcloud-go/v2/hcloud/exp/kit/randutil"
-
-	"gitlab.com/hetznercloud/fleeting-plugin-hetzner/internal/ippool"
+	scwBlock "github.com/scaleway/scaleway-sdk-go/api/block/v1"
+	scwInstance "github.com/scaleway/scaleway-sdk-go/api/instance/v1"
+	scwMarketplace "github.com/scaleway/scaleway-sdk-go/api/marketplace/v2"
+	"github.com/scaleway/scaleway-sdk-go/scw"
+	"github.com/scaleway/scaleway-sdk-go/validation"
 )
 
 type InstanceGroup interface {
@@ -30,12 +30,13 @@ type InstanceGroup interface {
 
 var _ InstanceGroup = (*instanceGroup)(nil)
 
-func New(client *hcloud.Client, log hclog.Logger, name string, config Config) InstanceGroup {
+func New(client *scw.Client, log hclog.Logger, name string, config Config) InstanceGroup {
 	return &instanceGroup{
-		name:   name,
-		config: config,
-		log:    log,
-		client: client,
+		name:           name,
+		config:         config,
+		log:            log,
+		instanceClient: scwInstance.NewAPI(client),
+		blockClient:    scwBlock.NewAPI(client),
 	}
 }
 
@@ -45,17 +46,15 @@ type instanceGroup struct {
 
 	// TODO: Replace with slog once https://github.com/hashicorp/go-hclog/pull/144 is
 	// merged.
-	log    hclog.Logger
-	client *hcloud.Client
-	ipPool *ippool.IPPool
+	log               hclog.Logger
+	instanceClient    *scwInstance.API
+	blockClient       *scwBlock.API
+	marketplaceClient *scwMarketplace.API
 
-	location                *hcloud.Location
-	serverTypes             []*hcloud.ServerType
-	serverTypesArchitecture hcloud.Architecture
-	image                   *hcloud.Image
-	privateNetworks         []*hcloud.Network
-	sshKeys                 []*hcloud.SSHKey
-	labels                  map[string]string
+	zone        *scw.Zone
+	serverTypes []string
+	image       string
+	tags        []string
 
 	randomNameFn func() string
 }
@@ -67,79 +66,69 @@ func (g *instanceGroup) Init(ctx context.Context) (err error) {
 		}
 	}
 
-	// Location
-	g.location, _, err = g.client.Location.Get(ctx, g.config.Location)
-	if err != nil {
-		return fmt.Errorf("could not get location: %w", err)
+	// Zone
+	zone := scw.Zone(g.config.Zone)
+	if !zone.Exists() {
+		return fmt.Errorf("zone not found: %s", g.config.Zone)
 	}
-	if g.location == nil {
-		return fmt.Errorf("location not found: %s", g.config.Location)
-	}
+	g.zone = &zone
 
-	// Server Types
+	// Server Type
 	for _, serverTypeID := range g.config.ServerTypes {
-		serverType, _, err := g.client.ServerType.Get(ctx, serverTypeID)
+		_, err := g.instanceClient.GetServerType(
+			&scwInstance.GetServerTypeRequest{
+				Zone: *g.zone,
+				Name: serverTypeID,
+			},
+		)
 		if err != nil {
-			return fmt.Errorf("could not get server type: %w", err)
+			return fmt.Errorf("server type not found: %s: %w", serverTypeID, err)
 		}
-		if serverType == nil {
-			return fmt.Errorf("server type not found: %s", serverTypeID)
-		}
-
-		if g.serverTypesArchitecture == "" {
-			g.serverTypesArchitecture = serverType.Architecture
-		} else if g.serverTypesArchitecture != serverType.Architecture {
-			return fmt.Errorf("unexpected server type architecture found: %s (%s)", serverType.Architecture, serverTypeID)
-		}
-
-		g.serverTypes = append(g.serverTypes, serverType)
+		g.serverTypes = append(g.serverTypes, serverTypeID)
 	}
 
 	// Image
-	g.image, _, err = g.client.Image.GetForArchitecture(ctx, g.config.Image, g.serverTypesArchitecture)
-	if err != nil {
-		return fmt.Errorf("could not get image: %w", err)
-	}
-	if g.image == nil {
-		return fmt.Errorf("image not found: %s", g.config.Image)
-	}
-
-	// Private Networks
-	g.privateNetworks = make([]*hcloud.Network, 0, len(g.config.PrivateNetworks))
-	for _, networkID := range g.config.PrivateNetworks {
-		network, _, err := g.client.Network.Get(ctx, networkID)
+	if !validation.IsUUID(g.config.Image) {
+		// If the image is not an UUID, check if it exists on the marketplace and it's compatible with the server types.
+		for _, serverTypeID := range g.config.ServerTypes {
+			_, err := g.marketplaceClient.GetLocalImageByLabel(
+				&scwMarketplace.GetLocalImageByLabelRequest{
+					ImageLabel:     g.config.Image,
+					Zone:           *g.zone,
+					CommercialType: serverTypeID,
+				},
+				scw.WithAllPages(),
+				scw.WithContext(ctx),
+			)
+			if err != nil {
+				return fmt.Errorf("image not found for server type %s: %w", serverTypeID, err)
+			}
+		}
+	} else {
+		// Else, check if the image exists by its UUID.
+		_, err := g.instanceClient.GetImage(
+			&scwInstance.GetImageRequest{
+				Zone:    *g.zone,
+				ImageID: g.config.Image,
+			},
+			scw.WithContext(ctx),
+		)
 		if err != nil {
-			return fmt.Errorf("could not get network: %w", err)
+			return fmt.Errorf("image not found: %s: %w", g.config.Image, err)
 		}
-		if network == nil {
-			return fmt.Errorf("network not found: %s", networkID)
-		}
-
-		g.privateNetworks = append(g.privateNetworks, network)
 	}
+	g.image = g.config.Image
 
-	// SSH Keys
-	g.sshKeys = make([]*hcloud.SSHKey, 0, len(g.config.SSHKeys))
-	for _, sshKeyID := range g.config.SSHKeys {
-		sshKey, _, err := g.client.SSHKey.Get(ctx, sshKeyID)
-		if err != nil {
-			return fmt.Errorf("could not get ssh key: %w", err)
-		}
-		if sshKey == nil {
-			return fmt.Errorf("ssh key not found: %s", sshKeyID)
-		}
-
-		g.sshKeys = append(g.sshKeys, sshKey)
+	// Tags
+	g.tags = make([]string, 0, len(g.config.Tags))
+	if g.config.Tags != nil {
+		g.tags = append(g.tags, g.config.Tags...)
 	}
+	g.tags = append(g.tags, fmt.Sprintf("instance-group=%s", g.name))
 
-	g.labels = make(map[string]string, len(g.config.Labels)+1)
-	if g.config.Labels != nil {
-		maps.Copy(g.labels, g.config.Labels)
-	}
-	g.labels["instance-group"] = g.name
-
-	if g.config.PublicIPPoolEnabled {
-		g.ipPool = ippool.New(g.config.Location, g.config.PublicIPPoolSelector)
+	// If the server name prefix is not set, use the instance group name as the prefix.
+	if g.config.ServerNamePrefix == "" {
+		g.config.ServerNamePrefix = g.name
 	}
 
 	return nil
@@ -148,8 +137,6 @@ func (g *instanceGroup) Init(ctx context.Context) (err error) {
 func (g *instanceGroup) Increase(ctx context.Context, delta int) ([]string, error) {
 	handlers := []CreateHandler{
 		&BaseHandler{},   // Configure the instance server create options from the instance group config.
-		&IPPoolHandler{}, // Configure the IPs in the instance server create options.
-		&VolumeHandler{}, // Create and configure a volume in the instance server create options.
 		&ServerHandler{}, // Create a server from the instance server create options.
 	}
 
@@ -244,7 +231,6 @@ func (g *instanceGroup) Increase(ctx context.Context, delta int) ([]string, erro
 func (g *instanceGroup) Decrease(ctx context.Context, iids []string) ([]string, error) {
 	handlers := []CleanupHandler{
 		&ServerHandler{}, // Delete the server of the instance.
-		&VolumeHandler{}, // Delete the volume of the instance.
 	}
 
 	// Run all pre decrease handlers
@@ -311,19 +297,20 @@ func (g *instanceGroup) Decrease(ctx context.Context, iids []string) ([]string, 
 }
 
 func (g *instanceGroup) List(ctx context.Context) ([]*Instance, error) {
-	servers, err := g.client.Server.AllWithOpts(ctx,
-		hcloud.ServerListOpts{
-			ListOpts: hcloud.ListOpts{
-				LabelSelector: fmt.Sprintf("instance-group=%s", g.name),
-			},
+	servers, err := g.instanceClient.ListServers(
+		&scwInstance.ListServersRequest{
+			Zone: *g.zone,
+			Tags: g.tags,
 		},
+		scw.WithAllPages(),
+		scw.WithContext(ctx),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("could not list instances: %w", err)
 	}
 
-	instances := make([]*Instance, 0, len(servers))
-	for _, server := range servers {
+	instances := make([]*Instance, 0, len(servers.Servers))
+	for _, server := range servers.Servers {
 		instances = append(instances, InstanceFromServer(server))
 	}
 
@@ -336,18 +323,22 @@ func (g *instanceGroup) Get(ctx context.Context, iid string) (*Instance, error) 
 		return nil, err
 	}
 
-	server, _, err := g.client.Server.GetByID(ctx, instance.ID)
+	server, err := g.instanceClient.GetServer(
+		&scwInstance.GetServerRequest{
+			Zone:     *g.zone,
+			ServerID: instance.ID,
+		},
+		scw.WithContext(ctx),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("could not get instance: %w", err)
 	}
 
-	return InstanceFromServer(server), nil
+	return InstanceFromServer(server.Server), nil
 }
 
 func (g *instanceGroup) Sanity(ctx context.Context) error {
-	handlers := []SanityHandler{
-		&VolumeHandler{}, // Delete dangling volumes.
-	}
+	handlers := []SanityHandler{}
 
 	// Run all sanity handlers
 	for _, h := range handlers {

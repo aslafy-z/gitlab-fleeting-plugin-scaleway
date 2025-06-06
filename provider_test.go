@@ -1,12 +1,10 @@
-package hetzner
+package scaleway
 
 import (
 	"context"
 	"fmt"
-	"net/http"
+	"net"
 	"net/http/httptest"
-	"net/url"
-	"strings"
 	"testing"
 
 	"github.com/hashicorp/go-hclog"
@@ -14,16 +12,16 @@ import (
 	"gitlab.com/gitlab-org/fleeting/fleeting/provider"
 	"go.uber.org/mock/gomock"
 
-	"github.com/hetznercloud/hcloud-go/v2/hcloud"
+	"github.com/aslafy-z/gitlab-fleeting-plugin-scaleway/internal/instancegroup"
+	"github.com/aslafy-z/gitlab-fleeting-plugin-scaleway/internal/testutils"
 	"github.com/hetznercloud/hcloud-go/v2/hcloud/exp/kit/sshutil"
 	"github.com/hetznercloud/hcloud-go/v2/hcloud/exp/mockutil"
-	"github.com/hetznercloud/hcloud-go/v2/hcloud/schema"
-
-	"gitlab.com/hetznercloud/fleeting-plugin-hetzner/internal/instancegroup"
-	"gitlab.com/hetznercloud/fleeting-plugin-hetzner/internal/testutils"
+	scwBlock "github.com/scaleway/scaleway-sdk-go/api/block/v1"
+	scwIam "github.com/scaleway/scaleway-sdk-go/api/iam/v1alpha1"
+	scwInstance "github.com/scaleway/scaleway-sdk-go/api/instance/v1"
 )
 
-func sshKeyFixture(t *testing.T) ([]byte, schema.SSHKey) {
+func sshKeyFixture(t *testing.T) ([]byte, scwIam.SSHKey) {
 	t.Helper()
 
 	privateKey, publicKey, err := sshutil.GenerateKeyPair()
@@ -36,7 +34,7 @@ func sshKeyFixture(t *testing.T) ([]byte, schema.SSHKey) {
 		t.Fatal(err)
 	}
 
-	return privateKey, schema.SSHKey{ID: 1, Name: "fleeting", Fingerprint: fingerprint, PublicKey: string(publicKey)}
+	return privateKey, scwIam.SSHKey{ID: "1", Name: "fleeting", ProjectID: "e0660b65-9dce-4f25-854d-1161a1aa96a9", Fingerprint: fingerprint, PublicKey: string(publicKey)}
 }
 
 func TestInit(t *testing.T) {
@@ -49,64 +47,43 @@ func TestInit(t *testing.T) {
 	}{
 		{name: "generated ssh key upload",
 			requests: []mockutil.Request{
-				{Method: "GET",
-					Want: func(t *testing.T, r *http.Request) {
-						require.True(t, strings.HasPrefix(r.RequestURI, "/ssh_keys?fingerprint="))
-					},
+				{
+					Method: "GET",
+					Path:   "/iam/v1alpha1/ssh-keys?disabled=false&order_by=created_at_asc&page=1",
 					Status: 200,
-					JSON:   schema.SSHKeyListResponse{SSHKeys: []schema.SSHKey{}},
+					JSON:   scwIam.ListSSHKeysResponse{SSHKeys: []*scwIam.SSHKey{}, TotalCount: 0},
 				},
-				{Method: "GET", Path: "/ssh_keys?name=fleeting",
+				{
+					Method: "POST", Path: "/iam/v1alpha1/ssh-keys",
 					Status: 200,
-					JSON:   schema.SSHKeyListResponse{SSHKeys: []schema.SSHKey{}},
+					JSON:   scwIam.SSHKey(sshKey),
 				},
-				{Method: "POST", Path: "/ssh_keys",
-					Status: 201,
-					JSON:   schema.SSHKeyCreateResponse{SSHKey: sshKey},
-				},
-				testutils.GetLocationHel1Request,
-				testutils.GetServerTypeCPX11Request,
-				testutils.GetImageDebian12Request,
-				{Method: "GET", Path: "/ssh_keys?name=fleeting",
-					Status: 200,
-					JSON: schema.SSHKeyListResponse{
-						SSHKeys: []schema.SSHKey{sshKey},
-					},
-				},
+				testutils.GetServerTypePRO2XSRequest,
+				testutils.GetServerTypePRO2SRequest,
+				testutils.GetImageUbuntu2404UUIDRequest,
 			},
 			run: func(t *testing.T, group *InstanceGroup, ctx context.Context, log hclog.Logger, settings provider.Settings) {
 				info, err := group.Init(ctx, log, settings)
 				require.NoError(t, err)
-				require.Equal(t, "hetzner/hel1/fleeting", info.ID)
+				require.Equal(t, "scaleway/fr-par-1/fleeting", info.ID)
 			},
 		},
 		{name: "static ssh key upload",
 			requests: []mockutil.Request{
-				{Method: "GET", Path: "/ssh_keys?fingerprint=" + url.QueryEscape(sshKey.Fingerprint),
+				{
+					Method: "GET",
+					Path:   "/iam/v1alpha1/ssh-keys?disabled=false&order_by=created_at_asc&page=1",
 					Status: 200,
-					JSON: schema.SSHKeyListResponse{
-						SSHKeys: []schema.SSHKey{},
-					},
+					JSON:   scwIam.ListSSHKeysResponse{SSHKeys: []*scwIam.SSHKey{}, TotalCount: 0},
 				},
-				{Method: "GET", Path: "/ssh_keys?name=fleeting",
+				{
+					Method: "POST", Path: "/iam/v1alpha1/ssh-keys",
 					Status: 200,
-					JSON: schema.SSHKeyListResponse{
-						SSHKeys: []schema.SSHKey{},
-					},
+					JSON:   scwIam.SSHKey(sshKey),
 				},
-				{Method: "POST", Path: "/ssh_keys",
-					Status: 201,
-					JSON:   schema.SSHKeyCreateResponse{SSHKey: sshKey},
-				},
-				testutils.GetLocationHel1Request,
-				testutils.GetServerTypeCPX11Request,
-				testutils.GetImageDebian12Request,
-				{Method: "GET", Path: "/ssh_keys?name=fleeting",
-					Status: 200,
-					JSON: schema.SSHKeyListResponse{
-						SSHKeys: []schema.SSHKey{sshKey},
-					},
-				},
+				testutils.GetServerTypePRO2XSRequest,
+				testutils.GetServerTypePRO2SRequest,
+				testutils.GetImageUbuntu2404UUIDRequest,
 			},
 			run: func(t *testing.T, group *InstanceGroup, ctx context.Context, log hclog.Logger, settings provider.Settings) {
 				settings.UseStaticCredentials = true
@@ -114,26 +91,20 @@ func TestInit(t *testing.T) {
 
 				info, err := group.Init(ctx, log, settings)
 				require.NoError(t, err)
-				require.Equal(t, "hetzner/hel1/fleeting", info.ID)
+				require.Equal(t, "scaleway/fr-par-1/fleeting", info.ID)
 			},
 		},
 		{name: "static ssh key existing",
 			requests: []mockutil.Request{
-				{Method: "GET", Path: "/ssh_keys?fingerprint=" + url.QueryEscape(sshKey.Fingerprint),
+				{
+					Method: "GET",
+					Path:   "/iam/v1alpha1/ssh-keys?disabled=false&order_by=created_at_asc&page=1",
 					Status: 200,
-					JSON: schema.SSHKeyListResponse{
-						SSHKeys: []schema.SSHKey{sshKey},
-					},
+					JSON:   scwIam.ListSSHKeysResponse{SSHKeys: []*scwIam.SSHKey{&sshKey}, TotalCount: 1},
 				},
-				testutils.GetLocationHel1Request,
-				testutils.GetServerTypeCPX11Request,
-				testutils.GetImageDebian12Request,
-				{Method: "GET", Path: "/ssh_keys?name=fleeting",
-					Status: 200,
-					JSON: schema.SSHKeyListResponse{
-						SSHKeys: []schema.SSHKey{sshKey},
-					},
-				},
+				testutils.GetServerTypePRO2XSRequest,
+				testutils.GetServerTypePRO2SRequest,
+				testutils.GetImageUbuntu2404UUIDRequest,
 			},
 			run: func(t *testing.T, group *InstanceGroup, ctx context.Context, log hclog.Logger, settings provider.Settings) {
 				settings.UseStaticCredentials = true
@@ -141,7 +112,7 @@ func TestInit(t *testing.T) {
 
 				info, err := group.Init(ctx, log, settings)
 				require.NoError(t, err)
-				require.Equal(t, "hetzner/hel1/fleeting", info.ID)
+				require.Equal(t, "scaleway/fr-par-1/fleeting", info.ID)
 			},
 		},
 	}
@@ -150,14 +121,17 @@ func TestInit(t *testing.T) {
 			server := httptest.NewServer(mockutil.Handler(t, testCase.requests))
 
 			group := &InstanceGroup{
-				Name:        "fleeting",
-				Token:       "dummy",
-				Endpoint:    server.URL,
-				Location:    "hel1",
-				ServerTypes: []string{"cpx11"},
-				Image:       "debian-12",
+				Name: "fleeting",
 
-				client: hcloud.NewClient(),
+				AccessKey:    "SCWAXXXXXXXXXXXXXXXX",
+				SecretKey:    "b78cf38b-cbf3-47c8-b729-fb1069a9d4a2",
+				Organization: "3ff93173-96c1-4f5f-8cf6-7441efc1070f",
+				Project:      "e0660b65-9dce-4f25-854d-1161a1aa96a9",
+
+				Endpoint:    server.URL,
+				Zone:        "fr-par-1",
+				ServerTypes: []string{"PRO2-XS", "PRO2-S"},
+				Image:       "1fa98915-fc85-40d9-95ea-65a06ca8b396",
 			}
 			ctx := context.Background()
 			log := hclog.New(hclog.DefaultOptions)
@@ -293,8 +267,8 @@ func TestUpdate(t *testing.T) {
 			run: func(t *testing.T, mock *instancegroup.MockInstanceGroup, group *InstanceGroup, ctx context.Context) {
 				instance := &instancegroup.Instance{
 					Name:   "fleeting-a",
-					ID:     1,
-					Server: &hcloud.Server{Status: hcloud.ServerStatusRunning},
+					ID:     "1",
+					Server: &scwInstance.Server{State: scwInstance.ServerStateRunning},
 				}
 
 				mock.EXPECT().
@@ -350,34 +324,29 @@ func TestConnectInfo(t *testing.T) {
 
 				mock.EXPECT().
 					Get(ctx, gomock.Any()).
-					Return(instancegroup.InstanceFromServer(hcloud.ServerFromSchema(
-						schema.Server{
-							ID:     1,
-							Name:   "fleeting-a",
-							Status: "running",
-							Image: &schema.Image{
-								OSFlavor:  "debian",
-								OSVersion: hcloud.Ptr("12"),
+					Return(instancegroup.InstanceFromServer(&scwInstance.Server{
+						ID:    "1",
+						Name:  "fleeting-a",
+						State: scwInstance.ServerStateRunning,
+						Arch:  scwInstance.ArchX86_64,
+						Image: &scwInstance.Image{
+							ID:   "1fa98915-fc85-40d9-95ea-65a06ca8b396",
+							Name: "Ubuntu 24.04",
+							Arch: scwInstance.ArchX86_64,
+						},
+						PublicIPs: []*scwInstance.ServerIP{
+							{
+								Address: net.ParseIP("37.1.1.1"),
+								Family:  scwInstance.ServerIPIPFamilyInet,
 							},
-							ServerType: schema.ServerType{
-								Name:         "cpx11",
-								Architecture: "x86",
-							},
-							PublicNet: schema.ServerPublicNet{
-								IPv4: schema.ServerPublicNetIPv4{
-									IP: "37.1.1.1",
-								},
-							},
-							PrivateNet: []schema.ServerPrivateNet{
-								{IP: "10.0.1.2"},
-							},
-						})), nil)
+						},
+					}), nil)
 
 				result, err := group.ConnectInfo(ctx, "fleeting-a:1")
 				require.NoError(t, err)
 				require.Equal(t, provider.ConnectInfo{
 					ConnectorConfig: provider.ConnectorConfig{
-						OS:                   "debian",
+						OS:                   "Ubuntu 24.04",
 						Arch:                 "amd64",
 						Protocol:             "ssh",
 						UseStaticCredentials: true,
@@ -386,7 +355,6 @@ func TestConnectInfo(t *testing.T) {
 					},
 					ID:           "fleeting-a:1",
 					ExternalAddr: "37.1.1.1",
-					InternalAddr: "10.0.1.2",
 				}, result)
 			},
 		},
@@ -397,31 +365,29 @@ func TestConnectInfo(t *testing.T) {
 
 				mock.EXPECT().
 					Get(ctx, gomock.Any()).
-					Return(instancegroup.InstanceFromServer(hcloud.ServerFromSchema(
-						schema.Server{
-							ID:     1,
-							Name:   "fleeting-a",
-							Status: "running",
-							Image: &schema.Image{
-								OSFlavor:  "debian",
-								OSVersion: hcloud.Ptr("12"),
+					Return(instancegroup.InstanceFromServer(&scwInstance.Server{
+						ID:    "1",
+						Name:  "fleeting-a",
+						State: scwInstance.ServerStateRunning,
+						Arch:  scwInstance.ArchX86_64,
+						Image: &scwInstance.Image{
+							ID:   "1fa98915-fc85-40d9-95ea-65a06ca8b396",
+							Name: "Ubuntu 24.04",
+							Arch: scwInstance.ArchX86_64,
+						},
+						PublicIPs: []*scwInstance.ServerIP{
+							{
+								Address: net.ParseIP("2a01:4f8:1c19:1403::1"),
+								Family:  scwInstance.ServerIPIPFamilyInet6,
 							},
-							ServerType: schema.ServerType{
-								Name:         "cpx11",
-								Architecture: "x86",
-							},
-							PublicNet: schema.ServerPublicNet{
-								IPv6: schema.ServerPublicNetIPv6{
-									IP: "2a01:4f8:1c19:1403::/64",
-								},
-							},
-						})), nil)
+						},
+					}), nil)
 
 				result, err := group.ConnectInfo(ctx, "fleeting-a:1")
 				require.NoError(t, err)
 				require.Equal(t, provider.ConnectInfo{
 					ConnectorConfig: provider.ConnectorConfig{
-						OS:                   "debian",
+						OS:                   "Ubuntu 24.04",
 						Arch:                 "amd64",
 						Protocol:             "ssh",
 						UseStaticCredentials: true,
@@ -475,11 +441,11 @@ func TestShutdown(t *testing.T) {
 	}{
 		{name: "success",
 			run: func(t *testing.T, group *InstanceGroup, server *mockutil.Server) {
-				group.sshKey = &hcloud.SSHKey{ID: 1, Name: "fleeting"}
+				group.sshKey = &scwIam.SSHKey{ID: "1", Name: "fleeting", ProjectID: "e0660b65-9dce-4f25-854d-1161a1aa96a9"}
 
 				server.Expect([]mockutil.Request{
 					{
-						Method: "DELETE", Path: "/ssh_keys/1",
+						Method: "DELETE", Path: "/iam/v1alpha1/ssh-keys/1",
 						Status: 204,
 					},
 				})
@@ -490,17 +456,17 @@ func TestShutdown(t *testing.T) {
 		},
 		{name: "failure",
 			run: func(t *testing.T, group *InstanceGroup, server *mockutil.Server) {
-				group.sshKey = &hcloud.SSHKey{ID: 1, Name: "fleeting"}
+				group.sshKey = &scwIam.SSHKey{ID: "1", Name: "fleeting", ProjectID: "e0660b65-9dce-4f25-854d-1161a1aa96a9"}
 
 				server.Expect([]mockutil.Request{
 					{
-						Method: "DELETE", Path: "/ssh_keys/1",
+						Method: "DELETE", Path: "/iam/v1alpha1/ssh-keys/1",
 						Status: 500,
 					},
 				})
 
 				err := group.Shutdown(context.Background())
-				require.EqualError(t, err, "hcloud: server responded with status code 500")
+				require.EqualError(t, err, "scaleway-sdk-go: http error 500 Internal Server Error: 500 Internal Server Error")
 			},
 		},
 		{name: "passthrough",
@@ -520,10 +486,13 @@ func TestShutdown(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			mock := instancegroup.NewMockInstanceGroup(ctrl)
 			group := &InstanceGroup{
-				log:      hclog.New(hclog.DefaultOptions),
-				settings: provider.Settings{},
-				group:    mock,
-				client:   client,
+				log:            hclog.New(hclog.DefaultOptions),
+				settings:       provider.Settings{},
+				group:          mock,
+				client:         client,
+				iamClient:      scwIam.NewAPI(client),
+				blockClient:    scwBlock.NewAPI(client),
+				instanceClient: scwInstance.NewAPI(client),
 			}
 
 			testCase.run(t, group, server)

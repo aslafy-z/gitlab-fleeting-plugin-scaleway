@@ -1,15 +1,16 @@
 package testutils
 
 import (
-	"github.com/hetznercloud/hcloud-go/v2/hcloud"
+	"github.com/scaleway/scaleway-sdk-go/scw"
 )
 
-func MakeTestClient(endpoint string) *hcloud.Client {
-	opts := []hcloud.ClientOption{
-		hcloud.WithEndpoint(endpoint),
-		hcloud.WithRetryOpts(hcloud.RetryOpts{BackoffFunc: hcloud.ConstantBackoff(0), MaxRetries: 3}),
-		hcloud.WithPollOpts(hcloud.PollOpts{BackoffFunc: hcloud.ConstantBackoff(0)}),
+func MakeTestClient(endpoint string) *scw.Client {
+	opts := []scw.ClientOption{
+		scw.WithAPIURL(endpoint),
+		scw.WithDefaultProjectID("e0660b65-9dce-4f25-854d-1161a1aa96a9"),
+		scw.WithDefaultZone(scw.Zone("fr-par-1")),
 	}
 
-	return hcloud.NewClient(opts...)
+	client, _ := scw.NewClient(opts...)
+	return client
 }

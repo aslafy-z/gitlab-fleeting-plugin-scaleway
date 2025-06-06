@@ -1,15 +1,23 @@
-# [Fleeting Plugin Hetzner](https://gitlab.com/hetznercloud/fleeting-plugin-hetzner)
+# TODO
 
-[![Pipeline Status](https://gitlab.com/hetznercloud/fleeting-plugin-hetzner/badges/main/pipeline.svg)](https://gitlab.com/hetznercloud/fleeting-plugin-hetzner/-/pipelines?scope=branches&ref=main)
-[![Coverage](https://gitlab.com/hetznercloud/fleeting-plugin-hetzner/badges/main/coverage.svg?job=test)](https://gitlab.com/hetznercloud/fleeting-plugin-hetzner/-/pipelines?scope=branches&ref=main)
-[![Go Report](https://goreportcard.com/badge/gitlab.com/hetznercloud/fleeting-plugin-hetzner)](https://goreportcard.com/report/gitlab.com/hetznercloud/fleeting-plugin-hetzner)
-[![Releases](https://img.shields.io/gitlab/v/release/hetznercloud%2Ffleeting-plugin-hetzner)](https://gitlab.com/hetznercloud/fleeting-plugin-hetzner/-/releases)
-![Maturity](https://img.shields.io/badge/maturity-general%20availability-yellow)
-[![License](https://img.shields.io/gitlab/license/hetznercloud%2Ffleeting-plugin-hetzner)](https://gitlab.com/hetznercloud/fleeting-plugin-hetzner/-/blob/main/LICENSE)
+- Test marketplace images
+- Support private networks
+- Update setup-ci-test-infrastructure-from-scratch.md
+- Make sure cleanup cleanups everything even if some resource could not be deleted
+- Figure out what value is needed in the ConnectInfo.OS field
 
-A [fleeting](https://gitlab.com/gitlab-org/fleeting/fleeting) plugin for [Hetzner Cloud](https://www.hetzner.com/cloud/).
+# [Fleeting Plugin Scaleway](https://github.com/aslafy-z/gitlab-fleeting-plugin-scaleway)
 
-This tool was created to leverage GitLab's [Next Runner Auto-scaling Architecture](https://handbook.gitlab.com/handbook/engineering/architecture/design-documents/runner_scaling/) with [Hetzner Cloud](https://www.hetzner.com/cloud/), and take advantage of the new features that comes with it.
+[![Pipeline Status](https://github.com/aslafy-z/gitlab-fleeting-plugin-scaleway/badges/main/pipeline.svg)](https://github.com/aslafy-z/gitlab-fleeting-plugin-scaleway/-/pipelines?scope=branches&ref=main)
+[![Coverage](https://github.com/aslafy-z/gitlab-fleeting-plugin-scaleway/badges/main/coverage.svg?job=test)](https://github.com/aslafy-z/gitlab-fleeting-plugin-scaleway/-/pipelines?scope=branches&ref=main)
+[![Go Report](https://goreportcard.com/badge/github.com/aslafy-z/gitlab-fleeting-plugin-scaleway)](https://goreportcard.com/report/github.com/aslafy-z/gitlab-fleeting-plugin-scaleway)
+[![Releases](https://img.shields.io/github/v/release/aslafy-z%2Fgitlab-fleeting-plugin-scaleway)](https://github.com/aslafy-z/gitlab-fleeting-plugin-scaleway/-/releases)
+![Maturity](https://img.shields.io/badge/maturity-general%20availability-red)
+[![License](https://img.shields.io/gitlab/license/aslafy-z%2Fgitlab-fleeting-plugin-scaleway)](https://github.com/aslafy-z/gitlab-fleeting-plugin-scaleway/-/blob/main/LICENSE)
+
+A [fleeting](https://gitlab.com/gitlab-org/fleeting/fleeting) plugin for [Scaleway](https://www.scaleway.com/).
+
+This tool was created to leverage GitLab's [Next Runner Auto-scaling Architecture](https://handbook.gitlab.com/handbook/engineering/architecture/design-documents/runner_scaling/) with [Scaleway](https://www.scaleway.com/), and take advantage of the new features that comes with it.
 
 ## Docs
 
@@ -62,7 +70,12 @@ To run the unit tests, run the following:
 $ make test
 ```
 
-For the integration tests to run, you need to export a Hetzner Cloud token in the `HCLOUD_TOKEN` environment variable before starting the tests.
+For the integration tests to run, you need to export some environment variables before starting the tests:
+
+- `SCW_ACCESS_KEY`: Your Scaleway access key.
+- `SCW_SECRET_KEY`: Your Scaleway secret key.
+- `SCW_ORGANIZATION_ID`: Your Scaleway organization ID.
+- `SCW_PROJECT_ID`: Your Scaleway project ID.
 
 #### Testing the plugin with GitLab Runner
 
@@ -72,13 +85,13 @@ Use an approach like this:
 1. Build the plugin by running the following:
 
    ```shell
-   $ cd cmd/fleeting-plugin-hetzner
+   $ cd cmd/fleeting-plugin-scaleway
    $ go build
    ```
 
 1. Set up the plugin in GitLab Runner's `config.toml` file using the approach described above, but
-   update `plugin = "/path/to/fleeting-plugin-hetzner"` to point to your
-   `cmd/fleeting-plugin-hetzner/fleeting-plugin-hetzner`
+   update `plugin = "/path/to/fleeting-plugin-scaleway"` to point to your
+   `cmd/fleeting-plugin-scaleway/fleeting-plugin-scaleway`
 
 1. Run `gitlab-runner run` or similar, to run GitLab Runner interactively as a foreground process.
 
@@ -89,13 +102,13 @@ Use an approach like this:
 
 To setup a development environment, make sure you installed the following tools:
 
-- [hcloud](https://github.com/hetznercloud/cli)
+- [scw](https://github.com/scaleway/scaleway-cli)
 - [docker](https://www.docker.com/) (with the compose plugin)
 
-1. Configure a `HCLOUD_TOKEN` and a `RUNNER_TOKEN` in your shell session.
+1. Configure Scaleway environment variables (`SCW_ACCESS_KEY`, `SCW_SECRET_KEY`, `SCW_ORGANIZATION_ID`, `SCW_PROJECT_ID`) and `RUNNER_TOKEN` in your shell session.
 
 > [!WARNING]
-> The development environment creates Hetzner Cloud servers which will induce costs.
+> The development environment creates Scaleway servers which will induce costs.
 
 2. Run the development environment:
 
@@ -125,4 +138,4 @@ was prepared by releaser-pleaser.
 
 ## History
 
-The project started out as a fork of the existing [gitlab-org/fleeting/plugins/aws](https://gitlab.com/hetznercloud/fleeting-plugin-hetzner/-/commit/5c71bcde58f5eb1272828bf34051b02510e7f0de) plugin, gradually replacing the AWS calls with calls to the [Hetzner Cloud API](https://github.com/hetznercloud/hcloud-go). To all the people involved in this initial work, **thanks a lot**!
+The project started out as a fork of the existing [gitlab.com/hetznercloud/fleeting-plugin-hetzner](https://gitlab.com/hetznercloud/fleeting-plugin-hetzner/-/commit/2a3429406114b0a38546bbe436b3943af3e460a9) plugin, gradually replacing the Hetzner Cloud calls with calls to the [Scaleway API](https://github.com/scaleway/scaleway-sdk-go). To all the people involved in this initial work, **thanks a lot**!

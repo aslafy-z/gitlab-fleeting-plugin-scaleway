@@ -1,4 +1,4 @@
-package hetzner
+package scaleway
 
 import (
 	"context"
@@ -6,17 +6,19 @@ import (
 	"fmt"
 	"math"
 	"net/http"
-	"net/netip"
 	"path"
 	"time"
 
 	"github.com/hashicorp/go-hclog"
 	"gitlab.com/gitlab-org/fleeting/fleeting/provider"
 
-	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	"github.com/hetznercloud/hcloud-go/v2/hcloud/exp/kit/sshutil"
 
-	"gitlab.com/hetznercloud/fleeting-plugin-hetzner/internal/instancegroup"
+	"github.com/aslafy-z/gitlab-fleeting-plugin-scaleway/internal/instancegroup"
+	scwBlock "github.com/scaleway/scaleway-sdk-go/api/block/v1"
+	scwIam "github.com/scaleway/scaleway-sdk-go/api/iam/v1alpha1"
+	scwInstance "github.com/scaleway/scaleway-sdk-go/api/instance/v1"
+	"github.com/scaleway/scaleway-sdk-go/scw"
 )
 
 var _ provider.InstanceGroup = (*InstanceGroup)(nil)
@@ -24,39 +26,42 @@ var _ provider.InstanceGroup = (*InstanceGroup)(nil)
 type InstanceGroup struct {
 	Name string `json:"name"`
 
-	Token    string `json:"token"`
-	Endpoint string `json:"endpoint"`
+	AccessKey    string `json:"access_key"`
+	SecretKey    string `json:"secret_key"`
+	Organization string `json:"organization"`
+	Project      string `json:"project"`
+	Endpoint     string `json:"endpoint"`
 
-	Location     string        `json:"location"`
-	ServerTypes  LaxStringList `json:"server_type"`
-	Image        string        `json:"image"`
-	UserData     string        `json:"user_data"`
-	UserDataFile string        `json:"user_data_file"`
+	Zone          string        `json:"location"`
+	ServerTypes   LaxStringList `json:"server_type"`
+	Image         string        `json:"image"`
+	CloudInit     string        `json:"cloud_init"`
+	CloudInitFile string        `json:"cloud_init_file"`
 
 	VolumeSize int `json:"volume_size"`
 
-	PublicIPv4Disabled   bool   `json:"public_ipv4_disabled"`
-	PublicIPv6Disabled   bool   `json:"public_ipv6_disabled"`
-	PublicIPPoolEnabled  bool   `json:"public_ip_pool_enabled"`
-	PublicIPPoolSelector string `json:"public_ip_pool_selector"`
+	PublicIPv4Disabled bool `json:"public_ipv4_disabled"`
+	PublicIPv6Disabled bool `json:"public_ipv6_disabled"`
 
-	PrivateNetworks []string `json:"private_networks"`
-
-	sshKey *hcloud.SSHKey
-	labels map[string]string
+	sshKey *scwIam.SSHKey
+	tags   []string
 
 	log      hclog.Logger
 	settings provider.Settings
 
 	size int
 
-	client *hcloud.Client
-	group  instancegroup.InstanceGroup
+	client         *scw.Client
+	instanceClient *scwInstance.API
+	iamClient      *scwIam.API
+	blockClient    *scwBlock.API
+
+	group instancegroup.InstanceGroup
 }
 
 func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings provider.Settings) (info provider.ProviderInfo, err error) {
 	g.settings = settings
-	g.log = log.With("location", g.Location, "name", g.Name)
+	g.log = log.With("zone", g.Zone, "name", g.Name)
 
 	if err = g.validate(); err != nil {
 		return
@@ -67,24 +72,27 @@ func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings pro
 	}
 
 	// Create client
-	clientOptions := []hcloud.ClientOption{
-		hcloud.WithApplication(Version.Name, Version.String()),
-		hcloud.WithToken(g.Token),
-		hcloud.WithHTTPClient(&http.Client{
+	clientOptions := []scw.ClientOption{
+		scw.WithAuth(g.AccessKey, g.SecretKey),
+		scw.WithDefaultOrganizationID(g.Organization),
+		scw.WithDefaultProjectID(g.Project),
+		scw.WithDefaultZone(scw.Zone(g.Zone)),
+		scw.WithUserAgent(fmt.Sprintf("%s (%s)", Version.Name, Version.String())),
+		scw.WithHTTPClient(&http.Client{
 			Timeout: 15 * time.Second,
-		}),
-		hcloud.WithPollOpts(hcloud.PollOpts{
-			BackoffFunc: hcloud.ExponentialBackoffWithOpts(hcloud.ExponentialBackoffOpts{
-				Base:       time.Second,
-				Multiplier: 2.0,
-				Cap:        5 * time.Second,
-			}),
 		}),
 	}
 	if g.Endpoint != "" {
-		clientOptions = append(clientOptions, hcloud.WithEndpoint(g.Endpoint))
+		clientOptions = append(clientOptions, scw.WithAPIURL(g.Endpoint))
 	}
-	g.client = hcloud.NewClient(clientOptions...)
+	g.client, err = scw.NewClient(clientOptions...)
+	if err != nil {
+		return info, fmt.Errorf("failed to create Scaleway client: %w", err)
+	}
+
+	g.instanceClient = scwInstance.NewAPI(g.client)
+	g.iamClient = scwIam.NewAPI(g.client)
+	g.blockClient = scwBlock.NewAPI(g.client)
 
 	// Prepare credentials
 	if !g.settings.UseStaticCredentials {
@@ -115,21 +123,14 @@ func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings pro
 
 	// Create instance group
 	groupConfig := instancegroup.Config{
-		Location:             g.Location,
-		ServerTypes:          g.ServerTypes,
-		Image:                g.Image,
-		UserData:             g.UserData,
-		PublicIPv4Disabled:   g.PublicIPv4Disabled,
-		PublicIPv6Disabled:   g.PublicIPv6Disabled,
-		PublicIPPoolEnabled:  g.PublicIPPoolEnabled,
-		PublicIPPoolSelector: g.PublicIPPoolSelector,
-		PrivateNetworks:      g.PrivateNetworks,
-		Labels:               g.labels,
-		VolumeSize:           g.VolumeSize,
-	}
-
-	if g.sshKey != nil {
-		groupConfig.SSHKeys = []string{g.sshKey.Name}
+		Zone:               g.Zone,
+		ServerTypes:        g.ServerTypes,
+		Image:              g.Image,
+		CloudInit:          g.CloudInit,
+		Tags:               g.tags,
+		VolumeSize:         g.VolumeSize,
+		PublicIPv4Disabled: g.PublicIPv4Disabled,
+		PublicIPv6Disabled: g.PublicIPv6Disabled,
 	}
 
 	g.group = instancegroup.New(g.client, g.log, g.Name, groupConfig)
@@ -139,7 +140,7 @@ func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings pro
 	}
 
 	return provider.ProviderInfo{
-		ID:        path.Join("hetzner", g.Location, g.Name),
+		ID:        path.Join("scaleway", g.Zone, g.Name),
 		MaxSize:   math.MaxInt,
 		Version:   Version.String(),
 		BuildInfo: Version.BuildInfo(),
@@ -159,27 +160,22 @@ func (g *InstanceGroup) Update(ctx context.Context, update func(string, provider
 
 		var state provider.State
 
-		switch instance.Server.Status {
-		case hcloud.ServerStatusStopping, hcloud.ServerStatusDeleting:
+		switch instance.Server.State {
+		case scwInstance.ServerStateStopping, scwInstance.ServerStateStopped, scwInstance.ServerStateStoppedInPlace:
 			state = provider.StateDeleting
 
-		// Server creation always go through `initializing` and `off`. Since we never
-		// shutdown servers, we can assume that "off" is still in the creation phase.
-		case hcloud.ServerStatusOff:
+		case scwInstance.ServerStateStarting:
 			state = provider.StateCreating
 
-		case hcloud.ServerStatusInitializing, hcloud.ServerStatusStarting:
-			state = provider.StateCreating
-
-		case hcloud.ServerStatusRunning:
+		case scwInstance.ServerStateRunning:
 			state = provider.StateRunning
 
-		case hcloud.ServerStatusMigrating, hcloud.ServerStatusRebuilding, hcloud.ServerStatusUnknown:
-			g.log.Debug("unhandled instance status", "id", id, "status", instance.Server.Status)
+		case scwInstance.ServerStateLocked:
+			g.log.Debug("unhandled instance status", "id", id, "state", instance.Server.State, "details", instance.Server.StateDetail)
 			continue
 
 		default:
-			g.log.Error("unexpected instance status", "id", id, "status", instance.Server.Status)
+			g.log.Error("unexpected instance status", "id", id, "state", instance.Server.State, "details", instance.Server.StateDetail)
 			continue
 		}
 
@@ -226,31 +222,35 @@ func (g *InstanceGroup) ConnectInfo(ctx context.Context, iid string) (provider.C
 	}
 
 	info.ID = iid
-	info.OS = instance.Server.Image.OSFlavor
+	info.OS = instance.Server.Image.Name // TODO: Figure out what value is needed here.
 
-	switch instance.Server.ServerType.Architecture {
-	case hcloud.ArchitectureX86:
+	switch instance.Server.Arch {
+	case scwInstance.ArchX86_64:
 		info.Arch = "amd64"
-	case hcloud.ArchitectureARM:
+	case scwInstance.ArchArm64:
 		info.Arch = "arm64"
 	default:
-		g.log.Warn("unsupported architecture", "architecture", instance.Server.ServerType.Architecture)
+		g.log.Warn("unsupported architecture", "architecture", instance.Server.Arch)
 	}
 
-	switch {
-	case !instance.Server.PublicNet.IPv4.IsUnspecified():
-		info.ExternalAddr = instance.Server.PublicNet.IPv4.IP.String()
-	case !instance.Server.PublicNet.IPv6.IsUnspecified():
-		network, ok := netip.AddrFromSlice(instance.Server.PublicNet.IPv6.IP)
-		if ok {
-			info.ExternalAddr = network.Next().String()
-		} else {
-			return info, fmt.Errorf("could not parse server public ipv6: %s", instance.Server.PublicNet.IPv6.IP.String())
+	// Handle public IP assignment
+	if len(instance.Server.PublicIPs) > 0 && !g.PublicIPv4Disabled {
+		for _, publicIP := range instance.Server.PublicIPs {
+			if publicIP.Family == scwInstance.ServerIPIPFamilyInet {
+				info.ExternalAddr = publicIP.Address.String()
+				break
+			}
 		}
 	}
 
-	if len(instance.Server.PrivateNet) > 0 {
-		info.InternalAddr = instance.Server.PrivateNet[0].IP.String()
+	// Handle IPv6 if no IPv4 found
+	if info.ExternalAddr == "" && len(instance.Server.PublicIPs) > 0 && !g.PublicIPv6Disabled {
+		for _, publicIP := range instance.Server.PublicIPs {
+			if publicIP.Family == scwInstance.ServerIPIPFamilyInet6 {
+				info.ExternalAddr = publicIP.Address.String()
+				break
+			}
+		}
 	}
 
 	return info, err
@@ -266,7 +266,12 @@ func (g *InstanceGroup) Shutdown(ctx context.Context) error {
 
 	if g.sshKey != nil {
 		g.log.Debug("deleting ssh key", "id", fmt.Sprint(g.sshKey.ID))
-		_, err := g.client.SSHKey.Delete(ctx, g.sshKey)
+		err := g.iamClient.DeleteSSHKey(
+			&scwIam.DeleteSSHKeyRequest{
+				SSHKeyID: g.sshKey.ID,
+			},
+			scw.WithContext(ctx),
+		)
 		if err != nil {
 			errs = append(errs, err)
 		}

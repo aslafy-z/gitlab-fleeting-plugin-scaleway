@@ -1,4 +1,4 @@
-module gitlab.com/hetznercloud/fleeting-plugin-hetzner
+module github.com/aslafy-z/gitlab-fleeting-plugin-scaleway
 
 go 1.23.0
 
@@ -12,6 +12,8 @@ require (
 	gitlab.com/gitlab-org/fleeting/fleeting v0.0.0-20250515220645-60977cd575cd
 	go.uber.org/mock v0.5.2
 )
+
+require gopkg.in/yaml.v2 v2.4.0 // indirect
 
 require (
 	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358 // indirect
@@ -49,6 +51,7 @@ require (
 	github.com/prometheus/common v0.62.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/rogpeppe/go-internal v1.12.0 // indirect
+	github.com/scaleway/scaleway-sdk-go v1.0.0-beta.33
 	github.com/tidwall/transform v0.0.0-20201103190739-32f242e2dbde // indirect
 	golang.org/x/crypto v0.38.0 // indirect
 	golang.org/x/mod v0.24.0 // indirect

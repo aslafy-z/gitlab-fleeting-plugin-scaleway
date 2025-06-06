@@ -1,6 +1,6 @@
 # Configuration reference
 
-This page references the different configurations for the Hetzner Cloud fleeting plugin.
+This page references the different configurations for the Scaleway fleeting plugin.
 
 [TOC]
 
@@ -23,111 +23,109 @@ The [`[runners.autoscaler.plugin_config]` section](https://docs.gitlab.com/runne
     </td>
   </tr>
   <tr>
-    <td><code>token</code></td>
+    <td><code>access_key</code></td>
     <td>string (<strong>required</strong>)</td>
     <td>
-      <a href="https://docs.hetzner.com/cloud/api/getting-started/generating-api-token">Hetzner Cloud API token</a>
-      to access your Hetzner Cloud project.
+      <a href="https://www.scaleway.com/en/docs/iam/how-to/create-api-keys/">Scaleway API access key</a>
+      to access your Scaleway project.
       <br>
-      You may also use the <code>HCLOUD_TOKEN</code> or <code>HCLOUD_TOKEN_FILE</code> environment variable
-      to configure the token.
+      You may also use the <code>SCW_ACCESS_KEY</code> environment variable to configure the value.
+    </td>
+  </tr>
+  <tr>
+    <td><code>secret_key</code></td>
+    <td>string (<strong>required</strong>)</td>
+    <td>
+      <a href="https://www.scaleway.com/en/docs/iam/how-to/create-api-keys/">Scaleway API secret key</a>
+      to access your Scaleway project.
+      <br>
+      You may also use the <code>SCW_SECRET_KEY</code> environment variable to configure the value.
+    </td>
+  </tr>
+  <tr>
+    <td><code>organization</code></td>
+    <td>string (<strong>required</strong>)</td>
+    <td>
+      <a href="https://www.scaleway.com/en/docs/organizations-and-projects/concepts/">Scaleway Organization ID</a>
+      to connect to.
+      <br>
+      You may also use the <code>SCW_ORGANIZATION_ID</code> environment variable to configure the value.
+    </td>
+  </tr>
+  <tr>
+    <td><code>project</code></td>
+    <td>string (<strong>required</strong>)</td>
+    <td>
+      <a href="https://www.scaleway.com/en/docs/organizations-and-projects/concepts/">Scaleway Project ID</a>
+      to connect to.
+      <br>
+      You may also use the <code>SCW_PROJECT_ID</code> environment variable to configure the value.
     </td>
   </tr>
   <tr>
     <td><code>endpoint</code></td>
     <td>string</td>
     <td>
-      Hetzner Cloud API endpoint to use.
+      Scaleway API endpoint to use.
       <br>
-      You may also use the <code>HCLOUD_ENDPOINT</code> or <code>HCLOUD_ENDPOINT_FILE</code> environment variable
-      to configure the endpoint.
+      You may also use the <code>SCW_API_URL</code> environment variable to configure the value.
     </td>
   </tr>
   <tr>
-    <td><code>location</code></td>
+    <td><code>zone</code></td>
     <td>string (<strong>required</strong>)</td>
     <td>
-      <a href="https://docs.hetzner.com/cloud/general/locations/">Hetzner Cloud location</a>
-      in which the instances will run.
+      <a href="https://www.scaleway.com/en/docs/account/reference-content/products-availability/">Scaleway Zone</a>
+      to deploy to.
       <br>
-      You can list the available locations by running <code>hcloud location list</code>.
+      You may also use the <code>SCW_DEFAULT_ZONE</code> environment variable to configure the value.
     </td>
   </tr>
   <tr>
     <td><code>server_type</code></td>
     <td>string or list of string (<strong>required</strong>)</td>
     <td>
-      <a href="https://docs.hetzner.com/cloud/servers/overview/">Hetzner Cloud server type</a>
+      <a href="https://www.scaleway.com/en/docs/account/reference-content/products-availability/">Scaleway server type</a>
       on which the instances will run. Using a list of server types allows you to define
       additional server types to fallback to in case of unavailable resource errors. All
       servers types must have the same CPU architecture.
       <br>
-      You can list the available server types by running <code>hcloud server-type list</code>.
+      You can list the available server types by running <code>scw instance server-type list</code>.
     </td>
   </tr>
   <tr>
     <td><code>image</code></td>
     <td>string (<strong>required</strong>)</td>
     <td>
-      Hetzner Cloud image from which the instances will run.
+      Scaleway image from which the instances will run. It supports both marketplace and private images.
       <br>
-      You can list the available images by running <code>hcloud image list</code>.
+      You can list the available images by running <code>scw marketplace image list</code> or <code>scw instance image list</code>.
     </td>
   </tr>
   <tr>
     <td><code>public_ipv4_disabled</code> and <code>public_ipv6_disabled</code></td>
     <td>boolean</td>
     <td>
-      Disable the instances public IPv4/IPv6. If no public IPs are enabled, you must
-      enable a private network (see the <code>private_networks</code> config) to be able
-      to communicate with the instances.
+      Disable the instances public IPv4/IPv6.
     </td>
   </tr>
   <tr>
-    <td><code>public_ip_pool_enabled</code></td>
-    <td>boolean</td>
-    <td>
-      Enable a public IP pool, from which Hetzner Cloud Primary IPs will be picked when
-      creating new instances. This feature offers a way to have predictable public IPs
-      for the fleeting instances.
-    </td>
-  </tr>
-  <tr>
-    <td><code>public_ip_pool_selector</code></td>
-    <td>string</td>
-    <td>
-      [Label selector](https://docs.hetzner.cloud/#label-selector) used to filter the
-      Hetzner Cloud Primary IPs in your Hetzner Cloud project when populating the public
-      IP pool.
-    </td>
-  </tr>
-  <tr>
-    <td><code>private_networks</code></td>
-    <td>list of string</td>
-    <td>
-      List of Hetzner Cloud Networks the instances will be attached to. To communicate
-      with the instances via the private network, you must configure the connector to
-      use the internal address (see the connector <code>use_external_addr</code> config).
-    </td>
-  </tr>
-  <tr>
-    <td><code>user_data</code> and <code>user_data_file</code></td>
+    <td><code>cloud_init</code> and <code>cloud_init_file</code></td>
     <td>string</td>
     <td>
       Configuration for the provisioning utility that runs during the instances creation.
       On Ubuntu, you can provide a Cloud Init configuration to setup the instances. Make
       sure to wait for the instances to be ready before scheduling jobs on them by using
       the autoscaler <code>instance_ready_command</code> config.
-      Note that <code>user_data</code> and <code>user_data_file</code> are mutually exclusive.
+      Note that <code>cloud_init</code> and <code>cloud_init_file</code> are mutually exclusive.
     </td>
   </tr>
   <tr>
     <td><code>volume_size</code></td>
     <td>integer</td>
     <td>
-      Size in GB for the <a href="https://docs.hetzner.com/cloud/volumes/overview">Volume</a>
-      that will be attached to each instance. No Volume will be attached if the
-      <code>volume_size</code> is 0 GB. The minimal <code>volume_size</code> is 10 GB.
+      Size in GB for the root <a href="https://www.scaleway.com/en/docs/instances/concepts/#block-volumes">Volume</a>
+      that will be attached to each instance. The minimal <code>volume_size</code> is 10 GB.
     </td>
   </tr>
 </table>
@@ -144,7 +142,7 @@ Below are parameters from the [`[runners.autoscaler]` section](https://docs.gitl
   <tr>
     <td><code>instance_ready_command</code></td>
     <td>
-      When using the <code>user_data</code> or <code>user_data_file</code> config, you
+      When using the <code>cloud_init</code> or <code>cloud_init_file</code> config, you
       must wait for the instances to be ready before scheduling jobs on them. When using
       Cloud Init, this can be done with the following: <code>cloud-init status --wait || test $? -eq 2</code>
     </td>

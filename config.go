@@ -1,4 +1,4 @@
-package hetzner
+package scaleway
 
 import (
 	"errors"
@@ -22,17 +22,53 @@ func (g *InstanceGroup) validate() error {
 		g.settings.Username = "root"
 	}
 
+	if g.VolumeSize == 0 {
+		g.VolumeSize = 10 // Default to 10GB
+	}
+
 	// Environment variables
 	{
-		value, err := envutil.LookupEnvWithFile("HCLOUD_TOKEN")
+		value, err := envutil.LookupEnvWithFile("SCW_ACCESS_KEY")
 		if err != nil {
 			errs = append(errs, err)
 		} else if value != "" {
-			g.Token = value
+			g.AccessKey = value
 		}
 	}
 	{
-		value, err := envutil.LookupEnvWithFile("HCLOUD_ENDPOINT")
+		value, err := envutil.LookupEnvWithFile("SCW_SECRET_KEY")
+		if err != nil {
+			errs = append(errs, err)
+		} else if value != "" {
+			g.SecretKey = value
+		}
+	}
+	{
+		value, err := envutil.LookupEnvWithFile("SCW_ORGANIZATION_ID")
+		if err != nil {
+			errs = append(errs, err)
+		} else if value != "" {
+			g.Organization = value
+		}
+	}
+	{
+		value, err := envutil.LookupEnvWithFile("SCW_PROJECT_ID")
+		if err != nil {
+			errs = append(errs, err)
+		} else if value != "" {
+			g.Project = value
+		}
+	}
+	{
+		value, err := envutil.LookupEnvWithFile("SCW_DEFAULT_ZONE")
+		if err != nil {
+			errs = append(errs, err)
+		} else if value != "" {
+			g.Zone = value
+		}
+	}
+	{
+		value, err := envutil.LookupEnvWithFile("SCW_API_URL")
 		if err != nil {
 			errs = append(errs, err)
 		} else if value != "" {
@@ -45,12 +81,24 @@ func (g *InstanceGroup) validate() error {
 		errs = append(errs, fmt.Errorf("missing required plugin config: name"))
 	}
 
-	if g.Token == "" {
-		errs = append(errs, fmt.Errorf("missing required plugin config: token"))
+	if g.AccessKey == "" {
+		errs = append(errs, fmt.Errorf("missing required plugin config: access_key"))
 	}
 
-	if g.Location == "" {
-		errs = append(errs, fmt.Errorf("missing required plugin config: location"))
+	if g.SecretKey == "" {
+		errs = append(errs, fmt.Errorf("missing required plugin config: secret_key"))
+	}
+
+	if g.Organization == "" {
+		errs = append(errs, fmt.Errorf("missing required plugin config: organization"))
+	}
+
+	if g.Project == "" {
+		errs = append(errs, fmt.Errorf("missing required plugin config: project"))
+	}
+
+	if g.Zone == "" {
+		errs = append(errs, fmt.Errorf("missing required plugin config: zone"))
 	}
 
 	if len(g.ServerTypes) == 0 {
@@ -61,12 +109,12 @@ func (g *InstanceGroup) validate() error {
 		errs = append(errs, fmt.Errorf("missing required plugin config: image"))
 	}
 
-	if g.VolumeSize != 0 && g.VolumeSize < 10 {
+	if g.VolumeSize < 10 {
 		errs = append(errs, fmt.Errorf("invalid plugin config value: volume_size must be >= 10"))
 	}
 
-	if g.UserData != "" && g.UserDataFile != "" {
-		errs = append(errs, fmt.Errorf("mutually exclusive plugin config provided: user_data, user_data_file"))
+	if g.CloudInit != "" && g.CloudInitFile != "" {
+		errs = append(errs, fmt.Errorf("mutually exclusive plugin config provided: cloud_init, cloud_init_file"))
 	}
 
 	if g.settings.Protocol == provider.ProtocolWinRM {
@@ -77,16 +125,16 @@ func (g *InstanceGroup) validate() error {
 }
 
 func (g *InstanceGroup) populate() error {
-	if g.UserDataFile != "" {
-		userData, err := os.ReadFile(g.UserDataFile)
+	if g.CloudInitFile != "" {
+		cloudInit, err := os.ReadFile(g.CloudInitFile)
 		if err != nil {
-			return fmt.Errorf("failed to read user data file: %w", err)
+			return fmt.Errorf("failed to read cloud init file: %w", err)
 		}
-		g.UserData = string(userData)
+		g.CloudInit = string(cloudInit)
 	}
 
-	g.labels = map[string]string{
-		"managed-by": Version.Name,
+	g.tags = []string{
+		fmt.Sprintf("managed-by=%s", Version.Name),
 	}
 
 	return nil

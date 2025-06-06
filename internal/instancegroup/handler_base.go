@@ -3,7 +3,7 @@ package instancegroup
 import (
 	"context"
 
-	"github.com/hetznercloud/hcloud-go/v2/hcloud"
+	scwInstance "github.com/scaleway/scaleway-sdk-go/api/instance/v1"
 )
 
 // BaseHandler configure the instance server create options with the instance group configuration.
@@ -12,8 +12,6 @@ type BaseHandler struct{}
 var _ CreateHandler = (*BaseHandler)(nil)
 
 func (h *BaseHandler) Create(_ context.Context, _ *instanceGroup, instance *Instance) error {
-	instance.opts = &hcloud.ServerCreateOpts{}
-	instance.opts.PublicNet = &hcloud.ServerCreatePublicNet{}
-
+	instance.opts = &scwInstance.CreateServerRequest{}
 	return nil
 }

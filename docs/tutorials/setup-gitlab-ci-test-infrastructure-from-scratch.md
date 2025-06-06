@@ -1,6 +1,6 @@
 # Setup a GitLab CI test infrastructure from scratch
 
-This tutorial provides learning material to setup a GitLab CI test infrastructure from scratch, using the Hetzner Cloud fleeting plugin.
+This tutorial provides learning material to setup a GitLab CI test infrastructure from scratch, using the Scaleway fleeting plugin.
 
 [TOC]
 
@@ -9,30 +9,38 @@ This tutorial provides learning material to setup a GitLab CI test infrastructur
 Before we start, make sure that you:
 
 - know how to use a command line interface,
-- have a [Hetzner Cloud account](https://console.hetzner.cloud/),
-- have the [`hcloud` CLI](https://github.com/hetznercloud/cli) installed on your device.
+- have a [Scaleway account](https://console.scaleway.com/),
+- have the [`hcloud` CLI](https://github.com/scaleway/scaleway-cli) installed on your device.
 
 ## 1. Create the infrastructure
 
-### 1.1. Setup a Hetzner Cloud project
+### 1.1. Setup a Scaleway project
 
-Let's start by creating a new Hetzner Cloud project named `gitlab-ci` using the Hetzner Cloud Console: https://console.hetzner.cloud/
+Let's start by creating a new Scaleway project named `gitlab-ci` using the Scaleway Console: https://console.scaleway.com/
 
-Using a dedicated Hetzner Cloud project for your CI workloads only, is recommended as it will reduce the risk of running into project rate limits, and possibly breaking your other workloads.
+Using a dedicated Scaleway project for your CI workloads only, is recommended as it will reduce the risk of running into project rate limits, and possibly breaking your other workloads.
 
-Next, we [generate a new API token](https://docs.hetzner.com/cloud/api/getting-started/generating-api-token/) for the fleeting plugin to communicate with the Hetzner Cloud API.
+Next, we [generate new API keys](https://www.scaleway.com/en/docs/iam/how-to/create-api-keys/) for the fleeting plugin to communicate with the Scaleway API.
 
-Save the API token in a new `hcloud` CLI context, named after the project:
+Save the API token in a new `scw` CLI context, named after the project:
 
 ```sh
-hcloud context create gitlab-ci
+scw init -p gitlab-ci \
+  access-key=YOUR_ACCESS_KEY \
+  secret-key=YOUR_SECRET_KEY \
+  organization-id=YOUR_ORGANIZATION_ID \
+  project-id=YOUR_PROJECT_ID \
+  zone=YOUR_DEFAULT_ZONE
 ```
 
 <details><summary>Output</summary>
 
 ```
-Token:
-Context gitlab-ci created and activated
+Answer to prompts...
+[...]
+Config saved $HOME/.config/scw/config.yaml:
+[...]
+✅ Initialization completed with success.
 ```
 
 </details>
@@ -43,13 +51,15 @@ Then, upload your public SSH key to be able to connect to the future instances w
 relying on password-based authentication.
 
 ```sh
-hcloud ssh-key create --name dev --public-key-from-file ~/.ssh/id_ed25519.pub
+scw iam ssh-key create name=dev public-key="$(cat ~/.ssh/id_ed25519.pub)"
 ```
 
 <details><summary>Output</summary>
 
 ```
-SSH key 22155019 created
+We found an SSH key in ~/.ssh/id_ed25519.pub. Do you want to add it to your Scaleway project? (Y/n): y
+
+✅ Initialization completed with success.
 ```
 
 </details>
@@ -65,7 +75,7 @@ The GitLab Runner Manager will be responsible for:
 We create a single `runner-manager` server that will be used as our GitLab Runner Manager:
 
 ```sh
-hcloud server create --name runner-manager --image debian-12 --type cpx11 --location hel1 --ssh-key dev --label runner=
+hcloud server create --name runner-manager --image debian-12 --type cpx11 --location fr-par-1 --ssh-key dev --label runner=
 ```
 
 <details><summary>Output</summary>
@@ -139,7 +149,7 @@ hcloud all list
 SERVERS
 ---
 ID         NAME              STATUS    IPV4              IPV6                      PRIVATE NET   DATACENTER   AGE
-55574479   runner-manager    running   203.0.113.1       2001:db8:e45b::/64        -             hel1-dc2     6m
+55574479   runner-manager    running   203.0.113.1       2001:db8:e45b::/64        -             fr-par-1-dc2     6m
 
 PRIMARY IPS
 ---
@@ -319,7 +329,7 @@ executor = "docker-autoscaler"
 image = "alpine:latest"
 
 [runners.autoscaler]
-plugin = "hetznercloud/fleeting-plugin-hetzner:latest"
+plugin = "aslafy-z/gitlab-fleeting-plugin-scaleway:latest"
 
 capacity_per_instance = 4
 max_instances = 5
@@ -329,13 +339,16 @@ instance_ready_command = "cloud-init status --wait || test $? -eq 2"
 
 [runners.autoscaler.plugin_config]
 name = "runner-docker-autoscaler"
-token = "$HCLOUD_TOKEN" # TODO: Change me with the Hetzner Cloud authentication token
+access_key = "$SCW_ACCESS_KEY" # TODO: Change me with the Scaleway access key
+secret_key = "$SCW_SECRET_KEY" # TODO: Change me with the Scaleway secret key
+organization = "$SCW_ORGANIZATION_ID" # TODO: Change me with the Scaleway organization ID
+project = "$SCW_PROJECT_ID" # TODO: Change me with the Scaleway project ID
+zone = "$SCW_DEFAULT_ZONE" # TODO: Change me with the Scaleway zone
 
-location = "hel1"
-server_type = "cpx21"
-image = "debian-12"
+server_type = ["PRO2-XS", "PRO2-S"]
+image = "ubuntu_noble"
 
-user_data = """#cloud-config
+cloud_init = """#cloud-config
 package_update: true
 package_upgrade: true
 
@@ -348,11 +361,6 @@ apt:
 packages:
   - ca-certificates
   - docker-ce
-
-swap:
-  filename: /var/swap.bin
-  size: auto
-  maxsize: 4294967296 # 4GB
 """
 
 [runners.autoscaler.connector_config]
@@ -375,7 +383,7 @@ gitlab-runner fleeting install
 
 ```
 Runtime platform                                    arch=amd64 os=linux pid=2524 revision=12030cf4 version=17.5.3
-runner: 11Qjxy-Gi, plugin: hetznercloud/fleeting-plugin-hetzner:latest, path: /root/.config/fleeting/plugins/registry.gitlab.com/hetznercloud/fleeting-plugin-hetzner/0.6.0/plugin
+runner: 11Qjxy-Gi, plugin: aslafy-z/gitlab-fleeting-plugin-scaleway:latest, path: /root/.config/fleeting/plugins/registry.github.com/aslafy-z/gitlab-fleeting-plugin-scaleway/0.1.0/plugin
 ```
 
 </details>
@@ -400,16 +408,16 @@ systemctl status --output=cat --no-pager gitlab-runner
         CPU: 1.880s
      CGroup: /system.slice/gitlab-runner.service
              ├─2587 /usr/bin/gitlab-runner run --config /etc/gitlab-runner/config.toml --working-directory /home/gitlab-runner --service gitlab-runner --user gitlab-runner
-             └─2595 /root/.config/fleeting/plugins/registry.gitlab.com/hetznercloud/fleeting-plugin-hetzner/0.6.0/plugin
+             └─2595 /root/.config/fleeting/plugins/registry.github.com/aslafy-z/gitlab-fleeting-plugin-scaleway/0.1.0/plugin
 
-time="2024-11-13T09:57:25Z" level=info msg="plugin initialized" build info="sha=85c314ff; ref=refs/pipelines/1528252336; go=go1.23.2; built_at=2024-11-05T15:20:21+0000; os_arch=linux/amd64" runner=11Qjxy-Gi subsystem=taskscaler version=v0.6.0
+time="2024-11-13T09:57:25Z" level=info msg="plugin initialized" build info="sha=85c314ff; ref=refs/pipelines/1528252336; go=go1.23.2; built_at=2024-11-05T15:20:21+0000; os_arch=linux/amd64" runner=11Qjxy-Gi subsystem=taskscaler version=v0.1.0
 time="2024-11-13T09:57:26Z" level=info msg="required scaling change" capacity-info="instance_count:0,max_instance_count:5,acquired:0,unavailable_capacity:0,pending:0,reserved:0,idle_count:8,scale_factor:0,scale_factor_limit:0,capacity_per_instance:4" required=2 runner=11Qjxy-Gi subsystem=taskscaler
-time="2024-11-13T09:57:26Z" level=info msg="increasing instances" amount=2 group=hetzner/hel1/cpx21/runner-docker-autoscaler runner=11Qjxy-Gi subsystem=taskscaler
+time="2024-11-13T09:57:26Z" level=info msg="increasing instances" amount=2 group=hetzner/fr-par-1/cpx21/runner-docker-autoscaler runner=11Qjxy-Gi subsystem=taskscaler
 time="2024-11-13T09:57:27Z" level=info msg="required scaling change" capacity-info="instance_count:2,max_instance_count:5,acquired:0,unavailable_capacity:0,pending:0,reserved:0,idle_count:8,scale_factor:0,scale_factor_limit:0,capacity_per_instance:4" required=0 runner=11Qjxy-Gi subsystem=taskscaler
-time="2024-11-13T09:57:42Z" level=info msg="increasing instances response" group=hetzner/hel1/cpx21/runner-docker-autoscaler num_requested=2 num_successful=2 runner=11Qjxy-Gi subsystem=taskscaler
-time="2024-11-13T09:57:42Z" level=info msg="increase update" group=hetzner/hel1/cpx21/runner-docker-autoscaler pending=2 requesting=0 runner=11Qjxy-Gi subsystem=taskscaler total_pending=2
-time="2024-11-13T09:57:42Z" level=info msg="instance discovery" cause=requested group=hetzner/hel1/cpx21/runner-docker-autoscaler id="runner-docker-autoscaler-3cfc018b:55575096" runner=11Qjxy-Gi state=running subsystem=taskscaler
-time="2024-11-13T09:57:42Z" level=info msg="instance discovery" cause=requested group=hetzner/hel1/cpx21/runner-docker-autoscaler id="runner-docker-autoscaler-dca4e0eb:55575097" runner=11Qjxy-Gi state=running subsystem=taskscaler
+time="2024-11-13T09:57:42Z" level=info msg="increasing instances response" group=hetzner/fr-par-1/cpx21/runner-docker-autoscaler num_requested=2 num_successful=2 runner=11Qjxy-Gi subsystem=taskscaler
+time="2024-11-13T09:57:42Z" level=info msg="increase update" group=hetzner/fr-par-1/cpx21/runner-docker-autoscaler pending=2 requesting=0 runner=11Qjxy-Gi subsystem=taskscaler total_pending=2
+time="2024-11-13T09:57:42Z" level=info msg="instance discovery" cause=requested group=hetzner/fr-par-1/cpx21/runner-docker-autoscaler id="runner-docker-autoscaler-3cfc018b:55575096" runner=11Qjxy-Gi state=running subsystem=taskscaler
+time="2024-11-13T09:57:42Z" level=info msg="instance discovery" cause=requested group=hetzner/fr-par-1/cpx21/runner-docker-autoscaler id="runner-docker-autoscaler-dca4e0eb:55575097" runner=11Qjxy-Gi state=running subsystem=taskscaler
 ```
 
 </details>
@@ -423,14 +431,14 @@ journalctl --output=cat -f -u gitlab-runner
 <details><summary>Output</summary>
 
 ```
-time="2024-11-13T09:57:25Z" level=info msg="plugin initialized" build info="sha=85c314ff; ref=refs/pipelines/1528252336; go=go1.23.2; built_at=2024-11-05T15:20:21+0000; os_arch=linux/amd64" runner=11Qjxy-Gi subsystem=taskscaler version=v0.6.0
+time="2024-11-13T09:57:25Z" level=info msg="plugin initialized" build info="sha=85c314ff; ref=refs/pipelines/1528252336; go=go1.23.2; built_at=2024-11-05T15:20:21+0000; os_arch=linux/amd64" runner=11Qjxy-Gi subsystem=taskscaler version=v0.1.0
 time="2024-11-13T09:57:26Z" level=info msg="required scaling change" capacity-info="instance_count:0,max_instance_count:5,acquired:0,unavailable_capacity:0,pending:0,reserved:0,idle_count:8,scale_factor:0,scale_factor_limit:0,capacity_per_instance:4" required=2 runner=11Qjxy-Gi subsystem=taskscaler
-time="2024-11-13T09:57:26Z" level=info msg="increasing instances" amount=2 group=hetzner/hel1/cpx21/runner-docker-autoscaler runner=11Qjxy-Gi subsystem=taskscaler
+time="2024-11-13T09:57:26Z" level=info msg="increasing instances" amount=2 group=hetzner/fr-par-1/cpx21/runner-docker-autoscaler runner=11Qjxy-Gi subsystem=taskscaler
 time="2024-11-13T09:57:27Z" level=info msg="required scaling change" capacity-info="instance_count:2,max_instance_count:5,acquired:0,unavailable_capacity:0,pending:0,reserved:0,idle_count:8,scale_factor:0,scale_factor_limit:0,capacity_per_instance:4" required=0 runner=11Qjxy-Gi subsystem=taskscaler
-time="2024-11-13T09:57:42Z" level=info msg="increasing instances response" group=hetzner/hel1/cpx21/runner-docker-autoscaler num_requested=2 num_successful=2 runner=11Qjxy-Gi subsystem=taskscaler
-time="2024-11-13T09:57:42Z" level=info msg="increase update" group=hetzner/hel1/cpx21/runner-docker-autoscaler pending=2 requesting=0 runner=11Qjxy-Gi subsystem=taskscaler total_pending=2
-time="2024-11-13T09:57:42Z" level=info msg="instance discovery" cause=requested group=hetzner/hel1/cpx21/runner-docker-autoscaler id="runner-docker-autoscaler-3cfc018b:55575096" runner=11Qjxy-Gi state=running subsystem=taskscaler
-time="2024-11-13T09:57:42Z" level=info msg="instance discovery" cause=requested group=hetzner/hel1/cpx21/runner-docker-autoscaler id="runner-docker-autoscaler-dca4e0eb:55575097" runner=11Qjxy-Gi state=running subsystem=taskscaler
+time="2024-11-13T09:57:42Z" level=info msg="increasing instances response" group=hetzner/fr-par-1/cpx21/runner-docker-autoscaler num_requested=2 num_successful=2 runner=11Qjxy-Gi subsystem=taskscaler
+time="2024-11-13T09:57:42Z" level=info msg="increase update" group=hetzner/fr-par-1/cpx21/runner-docker-autoscaler pending=2 requesting=0 runner=11Qjxy-Gi subsystem=taskscaler total_pending=2
+time="2024-11-13T09:57:42Z" level=info msg="instance discovery" cause=requested group=hetzner/fr-par-1/cpx21/runner-docker-autoscaler id="runner-docker-autoscaler-3cfc018b:55575096" runner=11Qjxy-Gi state=running subsystem=taskscaler
+time="2024-11-13T09:57:42Z" level=info msg="instance discovery" cause=requested group=hetzner/fr-par-1/cpx21/runner-docker-autoscaler id="runner-docker-autoscaler-dca4e0eb:55575097" runner=11Qjxy-Gi state=running subsystem=taskscaler
 time="2024-11-13T09:58:47Z" level=info msg="instance is ready" instance="runner-docker-autoscaler-3cfc018b:55575096" runner=11Qjxy-Gi subsystem=taskscaler took=1m5.337683491s
 time="2024-11-13T09:59:05Z" level=info msg="instance is ready" instance="runner-docker-autoscaler-dca4e0eb:55575097" runner=11Qjxy-Gi subsystem=taskscaler took=1m22.654298839s
 ```
@@ -451,9 +459,9 @@ hcloud all list
 SERVERS
 ---
 ID         NAME                                STATUS    IPV4              IPV6                      PRIVATE NET   DATACENTER   AGE
-55574479   runner-manager                      running   203.0.113.1       2001:db8:e45b::/64        -             hel1-dc2     39m
-55575096   runner-docker-autoscaler-3cfc018b   running   203.0.113.35      2001:db8:9b55::/64        -             hel1-dc2     17m
-55575097   runner-docker-autoscaler-dca4e0eb   running   203.0.113.37      2001:db8:dcf1::/64        -             hel1-dc2     17m
+55574479   runner-manager                      running   203.0.113.1       2001:db8:e45b::/64        -             fr-par-1-dc2     39m
+55575096   runner-docker-autoscaler-3cfc018b   running   203.0.113.35      2001:db8:9b55::/64        -             fr-par-1-dc2     17m
+55575097   runner-docker-autoscaler-dca4e0eb   running   203.0.113.37      2001:db8:dcf1::/64        -             fr-par-1-dc2     17m
 
 PRIMARY IPS
 ---

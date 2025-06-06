@@ -35,7 +35,7 @@ services:
     command:
       - mitmweb
       - --mode
-      - reverse:https://api.hetzner.cloud
+      - reverse:https://api.scaleway.com
       - --web-host
       - 0.0.0.0
     ports:

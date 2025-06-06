@@ -1,6 +1,6 @@
 # Set up monitoring
 
-With the dynamic nature of auto scaling, it is recommended to monitor your GitLab CI infrastructure to know when something goes wrong or if anything could be improved. This document describes the basics to monitor your GitLab CI infrastructure when using the Hetzner Fleeting plugin.
+With the dynamic nature of auto scaling, it is recommended to monitor your GitLab CI infrastructure to know when something goes wrong or if anything could be improved. This document describes the basics to monitor your GitLab CI infrastructure when using the Scaleway Fleeting plugin.
 
 ## Collect the gitlab-runner metrics
 
