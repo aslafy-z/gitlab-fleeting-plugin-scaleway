@@ -302,7 +302,7 @@ func (g *instanceGroup) Get(ctx context.Context, iid string) (*Instance, error) 
 	server, err := g.instanceClient.GetServer(
 		&scwInstance.GetServerRequest{
 			Zone:     *g.zone,
-			ServerID: instance.IID(),
+			ServerID: instance.ID,
 		},
 		scw.WithContext(ctx),
 	)

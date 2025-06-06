@@ -2,10 +2,12 @@ package instancegroup
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
+	scwBlockUtils "github.com/aslafy-z/gitlab-fleeting-plugin-scaleway/internal/scwutils/block"
+	scwErrors "github.com/aslafy-z/gitlab-fleeting-plugin-scaleway/internal/scwutils/errors"
+	scwInstanceUtils "github.com/aslafy-z/gitlab-fleeting-plugin-scaleway/internal/scwutils/instance"
 	scwBlock "github.com/scaleway/scaleway-sdk-go/api/block/v1"
 	scwInstance "github.com/scaleway/scaleway-sdk-go/api/instance/v1"
 	"github.com/scaleway/scaleway-sdk-go/scw"
@@ -88,8 +90,7 @@ func (h *ServerHandler) Create(ctx context.Context, group *instanceGroup, instan
 			instance.opts,
 			scw.WithContext(ctx),
 		)
-		var outOfStockError *scw.OutOfStockError
-		if err != nil && errors.As(err, &outOfStockError) {
+		if scwErrors.IsOutOfStockError(err) {
 			group.log.Warn("server type not available", "server_type", serverType, "error", err)
 			continue
 		}
@@ -164,11 +165,9 @@ func (h *ServerHandler) Cleanup(ctx context.Context, group *instanceGroup, insta
 		scw.WithContext(ctx),
 	)
 	if err != nil {
-		var notFoundErr *scw.ResourceNotFoundError
-		if errors.As(err, &notFoundErr) {
+		if scwErrors.IsResourceNotFoundError(err) {
 			return nil
 		}
-		fmt.Printf("=== NOT OK: %T\n", err)
 		return fmt.Errorf("could not get server: %w", err)
 	}
 
@@ -193,6 +192,18 @@ func (h *ServerHandler) Cleanup(ctx context.Context, group *instanceGroup, insta
 		return fmt.Errorf("could not power off server: %w", err)
 	}
 
+	//// TODO: Choose between the SDK non-documented method or the documented one
+	// _, err = group.instanceClient.UpdateServer(
+	// 	&scwInstance.UpdateServerRequest{
+	// 		ServerID: instance.ID,
+	// 		Volumes:  &map[string]*scwInstance.VolumeServerTemplate{},
+	// 	},
+	// 	scw.WithContext(ctx),
+	// )
+	// if err != nil {
+	// 	return fmt.Errorf("could not detach volume: %w", err)
+	// }
+
 	_, err = group.instanceClient.DetachServerVolume(
 		&scwInstance.DetachServerVolumeRequest{
 			ServerID: instance.ID,
@@ -204,8 +215,20 @@ func (h *ServerHandler) Cleanup(ctx context.Context, group *instanceGroup, insta
 		return fmt.Errorf("could not detach volume: %w", err)
 	}
 
-	err = group.instanceClient.DeleteVolume(
-		&scwInstance.DeleteVolumeRequest{
+	_, err = scwBlockUtils.WaitForVolumeStatus(
+		group.blockClient,
+		&scwBlockUtils.WaitForVolumeStatusRequest{
+			VolumeID: serverRes.Server.Volumes["0"].ID,
+			Statuses: []scwBlock.VolumeStatus{scwBlock.VolumeStatusAvailable},
+		},
+		scw.WithContext(ctx),
+	)
+	if err != nil {
+		return fmt.Errorf("could not wait for volume to be detached: %w", err)
+	}
+
+	err = group.blockClient.DeleteVolume(
+		&scwBlock.DeleteVolumeRequest{
 			VolumeID: serverRes.Server.Volumes["0"].ID,
 		},
 		scw.WithContext(ctx),
@@ -225,14 +248,17 @@ func (h *ServerHandler) Cleanup(ctx context.Context, group *instanceGroup, insta
 	}
 
 	instance.waitFn = func() error {
-		_, err = group.instanceClient.WaitForServer(
-			&scwInstance.WaitForServerRequest{
+		err = scwInstanceUtils.WaitForServerTerminated(
+			group.instanceClient,
+			&scwInstanceUtils.WaitForServerTerminatedRequest{
 				ServerID: instance.ID,
 			},
 			scw.WithContext(ctx),
 		)
-
-		return err
+		if err != nil {
+			return fmt.Errorf("could not wait for server deletion: %w", err)
+		}
+		return nil
 	}
 
 	return nil

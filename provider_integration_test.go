@@ -135,5 +135,5 @@ func ensureNoServers(t *testing.T, ctx context.Context, instanceClient *scwInsta
 		scw.WithContext(ctx),
 	)
 	require.NoError(t, err)
-	require.Equal(t, result.TotalCount, 0)
+	require.Equal(t, int(result.TotalCount), 0)
 }

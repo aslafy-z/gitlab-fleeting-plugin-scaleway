@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud/exp/mockutil"
+	scwBlock "github.com/scaleway/scaleway-sdk-go/api/block/v1"
 	scwInstance "github.com/scaleway/scaleway-sdk-go/api/instance/v1"
 	"github.com/scaleway/scaleway-sdk-go/scw"
 )
@@ -307,7 +308,25 @@ func TestServerHandlerCleanup(t *testing.T) {
 				},
 			},
 			{
-				Method: "DELETE", Path: "/instance/v1/zones/fr-par-1/volumes/1",
+				Method: "GET", Path: "/block/v1/zones/fr-par-1/volumes/1",
+				Status: 200,
+				JSON: scwBlock.Volume{
+					ID:     "1",
+					Status: scwBlock.VolumeStatusInUse,
+					Zone:   scw.Zone("fr-par-1"),
+				},
+			},
+			{
+				Method: "GET", Path: "/block/v1/zones/fr-par-1/volumes/1",
+				Status: 200,
+				JSON: scwBlock.Volume{
+					ID:     "1",
+					Status: scwBlock.VolumeStatusAvailable,
+					Zone:   scw.Zone("fr-par-1"),
+				},
+			},
+			{
+				Method: "DELETE", Path: "/block/v1/zones/fr-par-1/volumes/1",
 				Status: 204,
 			},
 			{

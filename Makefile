@@ -45,6 +45,10 @@ all:$(TARGETS)
 test: .mods
 	go test -v -timeout=30m ./...
 
+.PHONY: test-json
+test-json: .mods
+	go test -v -json -timeout=30m ./...
+
 coverage:
 	go test -v -timeout=30m -coverprofile=coverage.tmp -covermode count ./...
 	grep -v -e 'zz_.*.go' coverage.tmp > coverage.txt

@@ -55,11 +55,6 @@ apt:
 packages:
   - ca-certificates
   - docker-ce
-
-swap:
-  filename: /var/swap.bin
-  size: auto
-  maxsize: 4294967296 # 4GB
 """
 
 [runners.autoscaler.connector_config]

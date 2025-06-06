@@ -40,7 +40,7 @@ func TestValidate(t *testing.T) {
 			name: "valid with env",
 			group: InstanceGroup{
 				Name:         "fleeting",
-				AccessKey:    "SCWAXXXXXXXXXXXXXXXX",
+				AccessKey:    "SCWXXXXXXXXXXXXXXXXX",
 				SecretKey:    "b78cf38b-cbf3-47c8-b729-fb1069a9d4a2",
 				Organization: "3ff93173-96c1-4f5f-8cf6-7441efc1070f",
 				Project:      "e0660b65-9dce-4f25-854d-1161a1aa96a9",
@@ -136,6 +136,10 @@ missing required plugin config: image`, err.Error())
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Setenv("SCW_ACCESS_KEY", "")
+			t.Setenv("SCW_SECRET_KEY", "")
+			t.Setenv("SCW_ORGANIZATION_ID", "")
+			t.Setenv("SCW_PROJECT_ID", "")
+			t.Setenv("SCW_DEFAULT_ZONE", "")
 			t.Setenv("SCW_API_URL", "")
 
 			for key, value := range testCase.env {

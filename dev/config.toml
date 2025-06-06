@@ -52,15 +52,6 @@ apt:
 packages:
   - ca-certificates
   - docker-ce
-
-swap:
-  filename: /var/swap.bin
-  size: auto
-  maxsize: 4294967296 # 4GB
-
-bootcmd:
-  - mkfs.ext4 -F -m 0 /dev/disk/by-id/scsi-SHC_Volume_*
-  - mount /dev/disk/by-id/scsi-SHC_Volume_* /mnt
 """
 
 [runners.autoscaler.connector_config]
