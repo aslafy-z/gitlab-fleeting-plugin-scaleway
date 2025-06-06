@@ -28,12 +28,15 @@ instance_ready_command = "cloud-init status --wait || test $? -eq 2"
 
 [runners.autoscaler.plugin_config]
 name = "dev-docker-autoscaler"
-token = "$HCLOUD_TOKEN"
-endpoint = "http://proxy:8080/v1"
+access_key = "$SCW_ACCESS_KEY"
+secret_key = "$SCW_SECRET_KEY"
+organization = "$SCW_ORGANIZATION_ID"
+project = "$SCW_PROJECT_ID"
+zone = "$SCW_DEFAULT_ZONE"
+endpoint = "http://proxy:8080"
 
-location = "fr-par-1"
-server_type = "cpx21"
-image = "ubuntu-24.04"
+server_type = ["PRO2-XS", "PRO2-S"]
+image = "ubuntu_noble"
 volume_size = 15
 
 user_data = """#cloud-config

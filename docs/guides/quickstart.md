@@ -18,7 +18,7 @@ executor = "docker-autoscaler"
 image = "busybox:latest"
 
 [runners.autoscaler]
-plugin = "hetznercloud/fleeting-plugin-scaleway:latest"
+plugin = "aslafy-z/gitlab-fleeting-plugin-scaleway:latest"
 
 update_interval = "1m"
 update_interval_when_expecting = "5s"
@@ -32,13 +32,15 @@ max_use_count = 0
 instance_ready_command = "cloud-init status --wait || test $? -eq 2"
 
 [runners.autoscaler.plugin_config]
-name = "hetzner-docker-autoscaler"
-token = "$HCLOUD_TOKEN" # TODO: Change me with the Hetzner Cloud authentication token
+name = "scaleway-docker-autoscaler"
+access_key = "$SCW_ACCESS_KEY"
+secret_key = "$SCW_SECRET_KEY"
+organization = "$SCW_ORGANIZATION_ID"
+project = "$SCW_PROJECT_ID"
+zone = "$SCW_DEFAULT_ZONE"
 
-location = "fr-par-1"
-server_type = "cpx41"
-image = "debian-12"
-private_networks = []
+server_type = ["PRO2-XS", "PRO2-S"]
+image = "ubuntu_noble"
 
 user_data = """#cloud-config
 package_update: true

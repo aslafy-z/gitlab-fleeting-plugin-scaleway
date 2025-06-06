@@ -1,3 +1,10 @@
+# TODO
+
+- Support & test marketplace images
+- Support private networks
+- Update setup-ci-test-infrastructure-from-scratch.md
+
+
 # [Fleeting Plugin Scaleway](https://github.com/aslafy-z/gitlab-fleeting-plugin-scaleway)
 
 [![Pipeline Status](https://github.com/aslafy-z/gitlab-fleeting-plugin-scaleway/badges/main/pipeline.svg)](https://github.com/aslafy-z/gitlab-fleeting-plugin-scaleway/-/pipelines?scope=branches&ref=main)

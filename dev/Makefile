@@ -12,22 +12,19 @@ ifndef SCW_ACCESS_KEY
 	$(error SCW_ACCESS_KEY is not defined)
 endif
 ifndef SCW_SECRET_KEY
-	$(error SCW_ACCESS_KEY is not defined)
+	$(error SCW_SECRET_KEY is not defined)
 endif
 ifndef SCW_ORGANIZATION_ID
-	$(error SCW_ACCESS_KEY is not defined)
+	$(error SCW_ORGANIZATION_ID is not defined)
 endif
 ifndef SCW_PROJECT_ID
-	$(error SCW_ACCESS_KEY is not defined)
-endif
-ifndef SCW_DEFAULT_REGION
-	$(error SCW_ACCESS_KEY is not defined)
+	$(error SCW_PROJECT_ID is not defined)
 endif
 ifndef SCW_DEFAULT_ZONE
-	$(error SCW_ACCESS_KEY is not defined)
+	$(error SCW_DEFAULT_ZONE is not defined)
 endif
 	mkdir -p files
-	envsubst '$$RUNNER_TOKEN,$$SCW_ACCESS_KEY,$$SCW_SECRET_KEY,$$SCW_ORGANIZATION_ID,$$SCW_PROJECT_ID,$$SCW_DEFAULT_REGION,$$SCW_DEFAULT_ZONE' < config.toml > "$@"
+	envsubst '$$RUNNER_TOKEN,$$SCW_ACCESS_KEY,$$SCW_SECRET_KEY,$$SCW_ORGANIZATION_ID,$$SCW_PROJECT_ID,$$SCW_DEFAULT_ZONE' < config.toml > "$@"
 
 up: files/id_ed25519 files/config.toml
 	BUILDKIT_PROGRESS=plain docker compose up --build --detach
