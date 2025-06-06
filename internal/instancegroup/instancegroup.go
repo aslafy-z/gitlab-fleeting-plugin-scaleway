@@ -11,7 +11,9 @@ import (
 	"github.com/hetznercloud/hcloud-go/v2/hcloud/exp/kit/randutil"
 	scwBlock "github.com/scaleway/scaleway-sdk-go/api/block/v1"
 	scwInstance "github.com/scaleway/scaleway-sdk-go/api/instance/v1"
+	scwMarketplace "github.com/scaleway/scaleway-sdk-go/api/marketplace/v2"
 	"github.com/scaleway/scaleway-sdk-go/scw"
+	"github.com/scaleway/scaleway-sdk-go/validation"
 )
 
 type InstanceGroup interface {
@@ -44,9 +46,10 @@ type instanceGroup struct {
 
 	// TODO: Replace with slog once https://github.com/hashicorp/go-hclog/pull/144 is
 	// merged.
-	log            hclog.Logger
-	instanceClient *scwInstance.API
-	blockClient    *scwBlock.API
+	log               hclog.Logger
+	instanceClient    *scwInstance.API
+	blockClient       *scwBlock.API
+	marketplaceClient *scwMarketplace.API
 
 	zone        *scw.Zone
 	serverTypes []string
@@ -63,7 +66,7 @@ func (g *instanceGroup) Init(ctx context.Context) (err error) {
 		}
 	}
 
-	// Location
+	// Zone
 	zone := scw.Zone(g.config.Zone)
 	if !zone.Exists() {
 		return fmt.Errorf("zone not found: %s", g.config.Zone)
@@ -85,17 +88,38 @@ func (g *instanceGroup) Init(ctx context.Context) (err error) {
 	}
 
 	// Image
-	if _, err := g.instanceClient.GetImage(
-		&scwInstance.GetImageRequest{
-			Zone:    *g.zone,
-			ImageID: g.config.Image,
-		},
-		scw.WithContext(ctx),
-	); err != nil {
-		return fmt.Errorf("image not found: %s: %w", g.config.Image, err)
+	if !validation.IsUUID(g.config.Image) {
+		// If the image is not an UUID, check if it exists on the marketplace and it's compatible with the server types.
+		for _, serverTypeID := range g.config.ServerTypes {
+			_, err := g.marketplaceClient.GetLocalImageByLabel(
+				&scwMarketplace.GetLocalImageByLabelRequest{
+					ImageLabel:     g.config.Image,
+					Zone:           *g.zone,
+					CommercialType: serverTypeID,
+				},
+				scw.WithAllPages(),
+				scw.WithContext(ctx),
+			)
+			if err != nil {
+				return fmt.Errorf("image not found for server type %s: %w", serverTypeID, err)
+			}
+		}
+	} else {
+		// Else, check if the image exists by its UUID.
+		_, err := g.instanceClient.GetImage(
+			&scwInstance.GetImageRequest{
+				Zone:    *g.zone,
+				ImageID: g.config.Image,
+			},
+			scw.WithContext(ctx),
+		)
+		if err != nil {
+			return fmt.Errorf("image not found: %s: %w", g.config.Image, err)
+		}
 	}
 	g.image = g.config.Image
 
+	// Tags
 	g.tags = make([]string, 0, len(g.config.Tags))
 	if g.config.Tags != nil {
 		g.tags = append(g.tags, g.config.Tags...)

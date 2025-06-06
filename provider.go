@@ -32,11 +32,11 @@ type InstanceGroup struct {
 	Project      string `json:"project"`
 	Endpoint     string `json:"endpoint"`
 
-	Zone         string        `json:"location"`
-	ServerTypes  LaxStringList `json:"server_type"`
-	Image        string        `json:"image"`
-	UserData     string        `json:"user_data"`
-	UserDataFile string        `json:"user_data_file"`
+	Zone          string        `json:"location"`
+	ServerTypes   LaxStringList `json:"server_type"`
+	Image         string        `json:"image"`
+	CloudInit     string        `json:"cloud_init"`
+	CloudInitFile string        `json:"cloud_init_file"`
 
 	VolumeSize int `json:"volume_size"`
 
@@ -126,7 +126,7 @@ func (g *InstanceGroup) Init(ctx context.Context, log hclog.Logger, settings pro
 		Zone:               g.Zone,
 		ServerTypes:        g.ServerTypes,
 		Image:              g.Image,
-		UserData:           g.UserData,
+		CloudInit:          g.CloudInit,
 		Tags:               g.tags,
 		VolumeSize:         g.VolumeSize,
 		PublicIPv4Disabled: g.PublicIPv4Disabled,
@@ -222,7 +222,7 @@ func (g *InstanceGroup) ConnectInfo(ctx context.Context, iid string) (provider.C
 	}
 
 	info.ID = iid
-	info.OS = instance.Server.Image.Name
+	info.OS = instance.Server.Image.Name // TODO: Figure out what value is needed here.
 
 	switch instance.Server.Arch {
 	case scwInstance.ArchX86_64:

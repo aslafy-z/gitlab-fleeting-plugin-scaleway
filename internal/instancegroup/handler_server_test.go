@@ -2,7 +2,9 @@ package instancegroup
 
 import (
 	"context"
+	"encoding/json"
 	"net"
+	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -34,20 +36,15 @@ func TestServerHandlerCreate(t *testing.T) {
 					IP: &scwInstance.IP{ID: "2", Zone: "fr-par-1", Address: net.ParseIP("2001:db8:5678::1")},
 				},
 			},
-			// {
-			// 	Method: "GET", Path: "/instance/v1/zones/fr-par-1/products/servers/availability?page=1",
-			// 	Status: 201,
-			// 	JSON: scwInstance.GetServerTypesAvailabilityResponse{
-			// 		Servers: map[string]*scwInstance.GetServerTypesAvailabilityResponseAvailability{
-			// 			"PRO2-XS": {
-			// 				Availability: scwInstance.ServerTypesAvailabilityAvailable,
-			// 			},
-			// 		},
-			// 	},
-			// },
 			{
 				Method: "POST", Path: "/instance/v1/zones/fr-par-1/servers",
 				Status: 201,
+				Want: func(t *testing.T, r *http.Request) {
+					t.Helper()
+					var body map[string]any
+					require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+					assert.Equal(t, "PRO2-XS", body["commercial_type"])
+				},
 				JSON: scwInstance.CreateServerResponse{
 					Server: &scwInstance.Server{ID: "1", Name: "fleeting-a", Zone: scw.Zone("fr-par-1"), Arch: "x86_64", Volumes: map[string]*scwInstance.VolumeServer{"0": {ID: "1", Zone: scw.Zone("fr-par-1")}}},
 				},
@@ -105,36 +102,26 @@ func TestServerHandlerCreate(t *testing.T) {
 					IP: &scwInstance.IP{ID: "2", Zone: "fr-par-1", Address: net.ParseIP("2001:db8:5678::1")},
 				},
 			},
-			// {
-			// 	Method: "GET", Path: "/instance/v1/zones/fr-par-1/products/servers/availability?page=1",
-			// 	Status: 201,
-			// 	JSON: scwInstance.GetServerTypesAvailabilityResponse{
-			// 		Servers: map[string]*scwInstance.GetServerTypesAvailabilityResponseAvailability{
-			// 			"PRO2-XS": {
-			// 				Availability: scwInstance.ServerTypesAvailabilityShortage,
-			// 			},
-			// 		},
-			// 	},
-			// },
-			// {
-			// 	Method: "GET", Path: "/instance/v1/zones/fr-par-1/products/servers/availability?page=1",
-			// 	Status: 201,
-			// 	JSON: scwInstance.GetServerTypesAvailabilityResponse{
-			// 		Servers: map[string]*scwInstance.GetServerTypesAvailabilityResponseAvailability{
-			// 			"PRO2-S": {
-			// 				Availability: scwInstance.ServerTypesAvailabilityAvailable,
-			// 			},
-			// 		},
-			// 	},
-			// },
 			{
 				Method: "POST", Path: "/instance/v1/zones/fr-par-1/servers",
 				Status: 412,
-				JSON:   scw.ResponseError{Type: "out_of_stock", Resource: "server"},
+				Want: func(t *testing.T, r *http.Request) {
+					t.Helper()
+					var body map[string]any
+					require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+					assert.Equal(t, "PRO2-XS", body["commercial_type"])
+				},
+				JSON: scw.ResponseError{Type: "out_of_stock", Resource: "server"},
 			},
 			{
 				Method: "POST", Path: "/instance/v1/zones/fr-par-1/servers",
 				Status: 201,
+				Want: func(t *testing.T, r *http.Request) {
+					t.Helper()
+					var body map[string]any
+					require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+					assert.Equal(t, "PRO2-S", body["commercial_type"])
+				},
 				JSON: scwInstance.CreateServerResponse{
 					Server: &scwInstance.Server{ID: "1", Name: "fleeting-a", Zone: scw.Zone("fr-par-1"), Arch: "x86_64", Volumes: map[string]*scwInstance.VolumeServer{"0": {ID: "1", Zone: scw.Zone("fr-par-1")}}},
 				},
@@ -194,36 +181,26 @@ func TestServerHandlerCreate(t *testing.T) {
 			},
 			{
 				Method: "POST", Path: "/instance/v1/zones/fr-par-1/servers",
+				Want: func(t *testing.T, r *http.Request) {
+					t.Helper()
+					var body map[string]any
+					require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+					assert.Equal(t, "PRO2-XS", body["commercial_type"])
+				},
 				Status: 412,
 				JSON:   scw.ResponseError{Type: "out_of_stock", Resource: "server"},
 			},
 			{
 				Method: "POST", Path: "/instance/v1/zones/fr-par-1/servers",
+				Want: func(t *testing.T, r *http.Request) {
+					t.Helper()
+					var body map[string]any
+					require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+					assert.Equal(t, "PRO2-S", body["commercial_type"])
+				},
 				Status: 412,
 				JSON:   scw.ResponseError{Type: "out_of_stock", Resource: "server"},
 			},
-			// {
-			// 	Method: "GET", Path: "/instance/v1/zones/fr-par-1/products/servers/availability?page=1",
-			// 	Status: 201,
-			// 	JSON: scwInstance.GetServerTypesAvailabilityResponse{
-			// 		Servers: map[string]*scwInstance.GetServerTypesAvailabilityResponseAvailability{
-			// 			"PRO2-XS": {
-			// 				Availability: scwInstance.ServerTypesAvailabilityShortage,
-			// 			},
-			// 		},
-			// 	},
-			// },
-			// {
-			// 	Method: "GET", Path: "/instance/v1/zones/fr-par-1/products/servers/availability?page=1",
-			// 	Status: 201,
-			// 	JSON: scwInstance.GetServerTypesAvailabilityResponse{
-			// 		Servers: map[string]*scwInstance.GetServerTypesAvailabilityResponseAvailability{
-			// 			"PRO2-S": {
-			// 				Availability: scwInstance.ServerTypesAvailabilityShortage,
-			// 			},
-			// 		},
-			// 	},
-			// },
 		})
 
 		instance := NewInstance("fleeting-a")
@@ -269,6 +246,10 @@ func TestServerHandlerCleanup(t *testing.T) {
 			},
 			{
 				Method: "DELETE", Path: "/instance/v1/zones/fr-par-1/ips/1",
+				Status: 204,
+			},
+			{
+				Method: "DELETE", Path: "/instance/v1/zones/fr-par-1/ips/2",
 				Status: 204,
 			},
 			{

@@ -22,6 +22,10 @@ func (g *InstanceGroup) validate() error {
 		g.settings.Username = "root"
 	}
 
+	if g.VolumeSize == 0 {
+		g.VolumeSize = 10 // Default to 10GB
+	}
+
 	// Environment variables
 	{
 		value, err := envutil.LookupEnvWithFile("SCW_ACCESS_KEY")
@@ -105,12 +109,12 @@ func (g *InstanceGroup) validate() error {
 		errs = append(errs, fmt.Errorf("missing required plugin config: image"))
 	}
 
-	if g.VolumeSize != 0 && g.VolumeSize < 10 {
+	if g.VolumeSize < 10 {
 		errs = append(errs, fmt.Errorf("invalid plugin config value: volume_size must be >= 10"))
 	}
 
-	if g.UserData != "" && g.UserDataFile != "" {
-		errs = append(errs, fmt.Errorf("mutually exclusive plugin config provided: user_data, user_data_file"))
+	if g.CloudInit != "" && g.CloudInitFile != "" {
+		errs = append(errs, fmt.Errorf("mutually exclusive plugin config provided: cloud_init, cloud_init_file"))
 	}
 
 	if g.settings.Protocol == provider.ProtocolWinRM {
@@ -121,12 +125,12 @@ func (g *InstanceGroup) validate() error {
 }
 
 func (g *InstanceGroup) populate() error {
-	if g.UserDataFile != "" {
-		userData, err := os.ReadFile(g.UserDataFile)
+	if g.CloudInitFile != "" {
+		cloudInit, err := os.ReadFile(g.CloudInitFile)
 		if err != nil {
-			return fmt.Errorf("failed to read user data file: %w", err)
+			return fmt.Errorf("failed to read cloud init file: %w", err)
 		}
-		g.UserData = string(userData)
+		g.CloudInit = string(cloudInit)
 	}
 
 	g.tags = []string{

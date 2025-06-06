@@ -54,7 +54,7 @@ func TestInit(t *testing.T) {
 			run: func(t *testing.T, group *instanceGroup, server *mockutil.Server) {
 				server.Expect([]mockutil.Request{
 					testutils.GetServerTypePRO2XSRequest,
-					testutils.GetImageUbuntu2404Request,
+					testutils.GetImageUbuntu2404UUIDRequest,
 				})
 
 				err := group.Init(context.Background())

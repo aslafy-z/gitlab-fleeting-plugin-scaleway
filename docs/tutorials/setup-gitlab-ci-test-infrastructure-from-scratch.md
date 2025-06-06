@@ -348,7 +348,7 @@ zone = "$SCW_DEFAULT_ZONE" # TODO: Change me with the Scaleway zone
 server_type = ["PRO2-XS", "PRO2-S"]
 image = "ubuntu_noble"
 
-user_data = """#cloud-config
+cloud_init = """#cloud-config
 package_update: true
 package_upgrade: true
 

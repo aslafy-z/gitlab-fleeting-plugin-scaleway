@@ -27,9 +27,9 @@ type Config struct {
 	// `scw image list` to list available images.
 	Image string
 
-	// UserData is the data available to initialization framework that may run after the
+	// CloudInit is the data available to initialization framework that may run after the
 	// server boot.
-	UserData string
+	CloudInit string
 
 	// VolumeSize is the size in GB of the volume that will be attached to the server.
 	VolumeSize int

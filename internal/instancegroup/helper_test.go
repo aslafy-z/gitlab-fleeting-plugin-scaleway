@@ -8,11 +8,11 @@ import (
 	"testing"
 
 	"github.com/hashicorp/go-hclog"
+	"github.com/hetznercloud/hcloud-go/v2/hcloud/exp/mockutil"
 	scwBlock "github.com/scaleway/scaleway-sdk-go/api/block/v1"
 	scwInstance "github.com/scaleway/scaleway-sdk-go/api/instance/v1"
+	scwMarketplace "github.com/scaleway/scaleway-sdk-go/api/marketplace/v2"
 	"github.com/stretchr/testify/require"
-
-	"github.com/hetznercloud/hcloud-go/v2/hcloud/exp/mockutil"
 
 	"github.com/aslafy-z/gitlab-fleeting-plugin-scaleway/internal/testutils"
 )
@@ -32,7 +32,7 @@ func setupInstanceGroup(t *testing.T, config Config, requests []mockutil.Request
 		[]mockutil.Request{
 			testutils.GetServerTypePRO2XSRequest,
 			testutils.GetServerTypePRO2SRequest,
-			testutils.GetImageUbuntu2404Request,
+			testutils.GetImageUbuntu2404UUIDRequest,
 		},
 		requests...,
 	)
@@ -43,11 +43,12 @@ func setupInstanceGroup(t *testing.T, config Config, requests []mockutil.Request
 	log := hclog.New(hclog.DefaultOptions)
 
 	group := &instanceGroup{
-		name:           "fleeting",
-		config:         config,
-		log:            log,
-		instanceClient: scwInstance.NewAPI(client),
-		blockClient:    scwBlock.NewAPI(client),
+		name:              "fleeting",
+		config:            config,
+		log:               log,
+		instanceClient:    scwInstance.NewAPI(client),
+		blockClient:       scwBlock.NewAPI(client),
+		marketplaceClient: scwMarketplace.NewAPI(client),
 	}
 	group.randomNameFn = makeRandomNameFn(group.name)
 

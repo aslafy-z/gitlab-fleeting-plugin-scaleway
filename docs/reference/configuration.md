@@ -110,14 +110,14 @@ The [`[runners.autoscaler.plugin_config]` section](https://docs.gitlab.com/runne
     </td>
   </tr>
   <tr>
-    <td><code>user_data</code> and <code>user_data_file</code></td>
+    <td><code>cloud_init</code> and <code>cloud_init_file</code></td>
     <td>string</td>
     <td>
       Configuration for the provisioning utility that runs during the instances creation.
       On Ubuntu, you can provide a Cloud Init configuration to setup the instances. Make
       sure to wait for the instances to be ready before scheduling jobs on them by using
       the autoscaler <code>instance_ready_command</code> config.
-      Note that <code>user_data</code> and <code>user_data_file</code> are mutually exclusive.
+      Note that <code>cloud_init</code> and <code>cloud_init_file</code> are mutually exclusive.
     </td>
   </tr>
   <tr>
@@ -142,7 +142,7 @@ Below are parameters from the [`[runners.autoscaler]` section](https://docs.gitl
   <tr>
     <td><code>instance_ready_command</code></td>
     <td>
-      When using the <code>user_data</code> or <code>user_data_file</code> config, you
+      When using the <code>cloud_init</code> or <code>cloud_init_file</code> config, you
       must wait for the instances to be ready before scheduling jobs on them. When using
       Cloud Init, this can be done with the following: <code>cloud-init status --wait || test $? -eq 2</code>
     </td>

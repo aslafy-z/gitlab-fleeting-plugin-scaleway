@@ -3,6 +3,7 @@ package testutils
 import (
 	"github.com/hetznercloud/hcloud-go/v2/hcloud/exp/mockutil"
 	scwInstance "github.com/scaleway/scaleway-sdk-go/api/instance/v1"
+	scwMarketplace "github.com/scaleway/scaleway-sdk-go/api/marketplace/v2"
 )
 
 var (
@@ -32,13 +33,27 @@ var (
 			TotalCount: 1,
 		},
 	}
-	GetImageUbuntu2404Request = mockutil.Request{
+	GetImageUbuntu2404UUIDRequest = mockutil.Request{
 		Method: "GET", Path: "/instance/v1/zones/fr-par-1/images/1fa98915-fc85-40d9-95ea-65a06ca8b396",
 		Status: 200,
 		JSON: scwInstance.GetImageResponse{
 			Image: &scwInstance.Image{
 				ID:   "1fa98915-fc85-40d9-95ea-65a06ca8b396",
 				Zone: "fr-par-1",
+			},
+		},
+	}
+	GetImageUbuntu2404MarketplaceRequest = mockutil.Request{
+		Method: "GET", Path: "/marketplace/v2/local-images",
+		Status: 200,
+		JSON: scwMarketplace.ListLocalImagesResponse{
+			LocalImages: []*scwMarketplace.LocalImage{
+				{
+					ID:                        "1fa98915-fc85-40d9-95ea-65a06ca8b396",
+					Zone:                      "fr-par-1",
+					Label:                     "ubuntu_noble",
+					CompatibleCommercialTypes: []string{"PRO2-XS", "PRO2-S"},
+				},
 			},
 		},
 	}

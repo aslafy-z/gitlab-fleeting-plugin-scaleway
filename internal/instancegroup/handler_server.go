@@ -20,15 +20,44 @@ var _ CreateHandler = (*ServerHandler)(nil)
 var _ CleanupHandler = (*ServerHandler)(nil)
 
 func (h *ServerHandler) Create(ctx context.Context, group *instanceGroup, instance *Instance) error {
+	tags := append([]string{fmt.Sprintf("instance=%s", instance.Name)}, group.tags...)
+
 	instance.opts.Name = instance.Name
-	instance.opts.Tags = group.tags
+	instance.opts.Tags = tags
 	instance.opts.Zone = *group.zone
 	instance.opts.Image = &group.image
 	instance.opts.DynamicIPRequired = scw.BoolPtr(false)
+
+	var err error
+
+	//// TODO: Choose between two options:
+	// // 1. Create a volume from an image -> needs extracting snapshot ID from the image
+	// // 2. Let Scaleway create the volume from the image automatically and patch the name, tags, and IOPS later
+	// // For now, we will use option 2, as it is simpler and works with all images.
+	// // With option 2, if some error occurs, it may be tedious to identify the volume that should be delete.
+
+	// volumeRes, err := group.blockClient.CreateVolume(
+	// 	&scwBlock.CreateVolumeRequest{
+	// 		Name:     scw.StringPtr(fmt.Sprintf("%s-os", instance.Name)),
+	// 		Tags:     group.tags,
+	// 		PerfIops: scw.Uint32Ptr(5000), // TODO: Make this configurable
+	// 		FromEmpty: &scwBlock.CreateVolumeRequestFromEmpty{
+	// 			Size: scw.Size(group.config.VolumeSize * 1000 * 1000 * 1000), // Size in bytes
+	// 		},
+	// 		Zone: *group.zone,
+	// 	},
+	// 	scw.WithContext(ctx),
+	// )
+	// if err != nil {
+	// 	return fmt.Errorf("could not create volume: %w", err)
+	// }
+
 	instance.opts.Volumes = map[string]*scwInstance.VolumeServerTemplate{
 		"0": {
-			Size:       scw.SizePtr(scw.Size(group.config.VolumeSize)),
+			// ID:         &volumeRes.ID,
+			// Boot:       scw.BoolPtr(true),
 			VolumeType: scwInstance.VolumeVolumeTypeSbsVolume,
+			// Name:       scw.StringPtr(fmt.Sprintf("%s-os", instance.Name)),
 		},
 	}
 
@@ -36,7 +65,7 @@ func (h *ServerHandler) Create(ctx context.Context, group *instanceGroup, instan
 	if !group.config.PublicIPv4Disabled {
 		ipRes, err := group.instanceClient.CreateIP(
 			&scwInstance.CreateIPRequest{
-				Tags: group.tags,
+				Tags: tags,
 				Type: scwInstance.IPTypeRoutedIPv4,
 				Zone: *group.zone,
 			},
@@ -50,7 +79,7 @@ func (h *ServerHandler) Create(ctx context.Context, group *instanceGroup, instan
 	if !group.config.PublicIPv6Disabled {
 		ipRes, err := group.instanceClient.CreateIP(
 			&scwInstance.CreateIPRequest{
-				Tags: group.tags,
+				Tags: tags,
 				Type: scwInstance.IPTypeRoutedIPv6,
 				Zone: *group.zone,
 			},
@@ -64,27 +93,8 @@ func (h *ServerHandler) Create(ctx context.Context, group *instanceGroup, instan
 	instance.opts.PublicIPs = &publicIPs
 
 	var result *scwInstance.CreateServerResponse
-	var err error
 
-	// TODO: Move availability check to before the IP creation
-	// Check with a single request for all server types
 	for _, serverType := range group.serverTypes {
-		// srvAvailabilityRes, err := group.instanceClient.GetServerTypesAvailability(
-		// 	&scwInstance.GetServerTypesAvailabilityRequest{
-		// 		Zone: *group.zone,
-		// 	},
-		// 	scw.WithAllPages(),
-		// 	scw.WithContext(ctx),
-		// )
-		// if err != nil {
-		// 	return fmt.Errorf("could not check server type availability: %w", err)
-		// }
-		// srvAvailability, exists := srvAvailabilityRes.Servers[serverType]
-		// if !exists || srvAvailability.Availability != scwInstance.ServerTypesAvailabilityAvailable {
-		// 	group.log.Warn("server type not available", "server_type", serverType)
-		// 	continue
-		// }
-
 		instance.opts.CommercialType = serverType
 		result, err = group.instanceClient.CreateServer(
 			instance.opts,
@@ -97,32 +107,33 @@ func (h *ServerHandler) Create(ctx context.Context, group *instanceGroup, instan
 
 		break
 	}
-
 	if err != nil {
 		return fmt.Errorf("could not request instance creation: %w", err)
+	}
+
+	_, err = group.blockClient.UpdateVolume(
+		&scwBlock.UpdateVolumeRequest{
+			VolumeID: result.Server.Volumes["0"].ID,
+			Name:     scw.StringPtr(fmt.Sprintf("%s-os", instance.Name)),
+			Tags:     &tags,
+			PerfIops: scw.Uint32Ptr(5000), // TODO: Make this configurable
+		},
+		scw.WithContext(ctx),
+	)
+	if err != nil {
+		return fmt.Errorf("could not update volume name: %w", err)
 	}
 
 	err = group.instanceClient.SetServerUserData(
 		&scwInstance.SetServerUserDataRequest{
 			ServerID: result.Server.ID,
 			Key:      "cloud-init",
-			Content:  strings.NewReader(group.config.UserData),
+			Content:  strings.NewReader(group.config.CloudInit),
 		},
 		scw.WithContext(ctx),
 	)
 	if err != nil {
 		return fmt.Errorf("could not set server user data: %w", err)
-	}
-
-	_, err = group.blockClient.UpdateVolume(
-		&scwBlock.UpdateVolumeRequest{
-			VolumeID: result.Server.Volumes["0"].ID,
-			PerfIops: scw.Uint32Ptr(5000), // TODO: Make this configurable
-		},
-		scw.WithContext(ctx),
-	)
-	if err != nil {
-		return fmt.Errorf("could not update volume IOPS: %w", err)
 	}
 
 	_, err = group.instanceClient.ServerAction(
@@ -136,7 +147,6 @@ func (h *ServerHandler) Create(ctx context.Context, group *instanceGroup, instan
 		return fmt.Errorf("could not power on server: %w", err)
 	}
 
-	// TODO: Support & test marketplace labels
 	*instance = *InstanceFromServer(result.Server)
 
 	instance.waitFn = func() error {
@@ -158,107 +168,138 @@ func (h *ServerHandler) Cleanup(ctx context.Context, group *instanceGroup, insta
 		return nil
 	}
 
+	// TODO: Prevent repetition
+	tags := []string{fmt.Sprintf("instance=%s", instance.Name)}
+
+	// Delete all public IPs associated with the server
+	ipsRes, err := group.instanceClient.ListIPs(
+		&scwInstance.ListIPsRequest{
+			Tags: tags,
+			Zone: *group.zone,
+		},
+		scw.WithAllPages(),
+		scw.WithContext(ctx),
+	)
+	if err != nil {
+		return fmt.Errorf("could not list IPs: %w", err)
+	}
+	for _, ip := range ipsRes.IPs {
+		err = group.instanceClient.DeleteIP(
+			&scwInstance.DeleteIPRequest{
+				IP: ip.ID,
+			},
+			scw.WithContext(ctx),
+		)
+		if err != nil {
+			return fmt.Errorf("could not delete IP: %w", err)
+		}
+	}
+
 	serverRes, err := group.instanceClient.GetServer(
 		&scwInstance.GetServerRequest{
 			ServerID: instance.ID,
 		},
 		scw.WithContext(ctx),
 	)
-	if err != nil {
-		if scwErrors.IsResourceNotFoundError(err) {
-			return nil
-		}
+
+	if err != nil && !scwErrors.IsResourceNotFoundError(err) {
 		return fmt.Errorf("could not get server: %w", err)
 	}
 
-	err = group.instanceClient.DeleteIP(
-		&scwInstance.DeleteIPRequest{
-			IP: serverRes.Server.PublicIPs[0].ID,
+	serverPresent := false
+	if serverRes != nil && serverRes.Server != nil {
+		serverPresent = true
+	}
+
+	if serverPresent {
+		err = group.instanceClient.ServerActionAndWait(
+			&scwInstance.ServerActionAndWaitRequest{
+				ServerID: instance.ID,
+				Action:   scwInstance.ServerActionPoweroff,
+			},
+			scw.WithContext(ctx),
+		)
+		if err != nil {
+			return fmt.Errorf("could not power off server: %w", err)
+		}
+
+		if len(serverRes.Server.Volumes) > 0 {
+			// Detach all volumes attached to the server
+			for _, volume := range serverRes.Server.Volumes {
+				_, err = group.instanceClient.DetachServerVolume(
+					&scwInstance.DetachServerVolumeRequest{
+						ServerID: instance.ID,
+						VolumeID: volume.ID,
+					},
+					scw.WithContext(ctx),
+				)
+				if err != nil {
+					return fmt.Errorf("could not detach volume: %w", err)
+				}
+			}
+		}
+	}
+
+	volumesRes, err := group.blockClient.ListVolumes(
+		&scwBlock.ListVolumesRequest{
+			Tags: tags,
+			Zone: *group.zone,
 		},
+		scw.WithAllPages(),
 		scw.WithContext(ctx),
 	)
 	if err != nil {
-		return fmt.Errorf("could not delete IP: %w", err)
+		return fmt.Errorf("could not list volumes: %w", err)
 	}
 
-	err = group.instanceClient.ServerActionAndWait(
-		&scwInstance.ServerActionAndWaitRequest{
-			ServerID: instance.ID,
-			Action:   scwInstance.ServerActionPoweroff,
-		},
-		scw.WithContext(ctx),
-	)
-	if err != nil {
-		return fmt.Errorf("could not power off server: %w", err)
+	for _, volume := range volumesRes.Volumes {
+		_, err = scwBlockUtils.WaitForVolumeStatus(
+			group.blockClient,
+			&scwBlockUtils.WaitForVolumeStatusRequest{
+				VolumeID: volume.ID,
+				Statuses: []scwBlock.VolumeStatus{scwBlock.VolumeStatusAvailable},
+			},
+			scw.WithContext(ctx),
+		)
+		if err != nil {
+			return fmt.Errorf("could not wait for volume to be detached: %w", err)
+		}
+
+		err = group.blockClient.DeleteVolume(
+			&scwBlock.DeleteVolumeRequest{
+				VolumeID: volume.ID,
+			},
+			scw.WithContext(ctx),
+		)
+		if err != nil {
+			return fmt.Errorf("could not delete volume: %w", err)
+		}
 	}
 
-	//// TODO: Choose between the SDK non-documented method or the documented one
-	// _, err = group.instanceClient.UpdateServer(
-	// 	&scwInstance.UpdateServerRequest{
-	// 		ServerID: instance.ID,
-	// 		Volumes:  &map[string]*scwInstance.VolumeServerTemplate{},
-	// 	},
-	// 	scw.WithContext(ctx),
-	// )
-	// if err != nil {
-	// 	return fmt.Errorf("could not detach volume: %w", err)
-	// }
-
-	_, err = group.instanceClient.DetachServerVolume(
-		&scwInstance.DetachServerVolumeRequest{
-			ServerID: instance.ID,
-			VolumeID: serverRes.Server.Volumes["0"].ID,
-		},
-		scw.WithContext(ctx),
-	)
-	if err != nil {
-		return fmt.Errorf("could not detach volume: %w", err)
-	}
-
-	_, err = scwBlockUtils.WaitForVolumeStatus(
-		group.blockClient,
-		&scwBlockUtils.WaitForVolumeStatusRequest{
-			VolumeID: serverRes.Server.Volumes["0"].ID,
-			Statuses: []scwBlock.VolumeStatus{scwBlock.VolumeStatusAvailable},
-		},
-		scw.WithContext(ctx),
-	)
-	if err != nil {
-		return fmt.Errorf("could not wait for volume to be detached: %w", err)
-	}
-
-	err = group.blockClient.DeleteVolume(
-		&scwBlock.DeleteVolumeRequest{
-			VolumeID: serverRes.Server.Volumes["0"].ID,
-		},
-		scw.WithContext(ctx),
-	)
-	if err != nil {
-		return fmt.Errorf("could not delete volume: %w", err)
-	}
-
-	err = group.instanceClient.DeleteServer(
-		&scwInstance.DeleteServerRequest{
-			ServerID: instance.ID,
-		},
-		scw.WithContext(ctx),
-	)
-	if err != nil {
-		return fmt.Errorf("could not request instance deletion: %w", err)
-	}
-
-	instance.waitFn = func() error {
-		err = scwInstanceUtils.WaitForServerTerminated(
-			group.instanceClient,
-			&scwInstanceUtils.WaitForServerTerminatedRequest{
+	if serverPresent {
+		err = group.instanceClient.DeleteServer(
+			&scwInstance.DeleteServerRequest{
 				ServerID: instance.ID,
 			},
 			scw.WithContext(ctx),
 		)
 		if err != nil {
-			return fmt.Errorf("could not wait for server deletion: %w", err)
+			return fmt.Errorf("could not request instance deletion: %w", err)
 		}
-		return nil
+
+		instance.waitFn = func() error {
+			err = scwInstanceUtils.WaitForServerTerminated(
+				group.instanceClient,
+				&scwInstanceUtils.WaitForServerTerminatedRequest{
+					ServerID: instance.ID,
+				},
+				scw.WithContext(ctx),
+			)
+			if err != nil {
+				return fmt.Errorf("could not wait for server deletion: %w", err)
+			}
+			return nil
+		}
 	}
 
 	return nil

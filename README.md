@@ -1,10 +1,10 @@
 # TODO
 
-- Support & test marketplace images
+- Test marketplace images
 - Support private networks
 - Update setup-ci-test-infrastructure-from-scratch.md
-- Remove commented availability checks?
 - Make sure cleanup cleanups everything even if some resource could not be deleted
+- Figure out what value is needed in the ConnectInfo.OS field
 
 # [Fleeting Plugin Scaleway](https://github.com/aslafy-z/gitlab-fleeting-plugin-scaleway)
 

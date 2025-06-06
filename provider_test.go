@@ -60,7 +60,7 @@ func TestInit(t *testing.T) {
 				},
 				testutils.GetServerTypePRO2XSRequest,
 				testutils.GetServerTypePRO2SRequest,
-				testutils.GetImageUbuntu2404Request,
+				testutils.GetImageUbuntu2404UUIDRequest,
 			},
 			run: func(t *testing.T, group *InstanceGroup, ctx context.Context, log hclog.Logger, settings provider.Settings) {
 				info, err := group.Init(ctx, log, settings)
@@ -83,7 +83,7 @@ func TestInit(t *testing.T) {
 				},
 				testutils.GetServerTypePRO2XSRequest,
 				testutils.GetServerTypePRO2SRequest,
-				testutils.GetImageUbuntu2404Request,
+				testutils.GetImageUbuntu2404UUIDRequest,
 			},
 			run: func(t *testing.T, group *InstanceGroup, ctx context.Context, log hclog.Logger, settings provider.Settings) {
 				settings.UseStaticCredentials = true
@@ -104,7 +104,7 @@ func TestInit(t *testing.T) {
 				},
 				testutils.GetServerTypePRO2XSRequest,
 				testutils.GetServerTypePRO2SRequest,
-				testutils.GetImageUbuntu2404Request,
+				testutils.GetImageUbuntu2404UUIDRequest,
 			},
 			run: func(t *testing.T, group *InstanceGroup, ctx context.Context, log hclog.Logger, settings provider.Settings) {
 				settings.UseStaticCredentials = true
